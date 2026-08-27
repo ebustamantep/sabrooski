@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sabrooski POS - Demo táctil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cyan:#0be8f5;
+    --cyan-dark:#00c6d4;
+    --purple:#7c3aed;
+    --purple-dark:#5b21b6;
+    --purple-ink:#2e1065;
+    --lav:#e9e2ff;
+    --lav-2:#c4b5fd;
+    --bg:#f5f3ff;
+    --white:#ffffff;
+    --line:#e4defc;
+    --danger:#e0455a;
+    --success:#1b9d6b;
+    --shadow: 0 6px 16px rgba(76,29,149,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Nunito Sans', sans-serif;
+    background:
+      radial-gradient(circle at 8% 8%, rgba(11,232,245,0.18), transparent 40%),
+      radial-gradient(circle at 95% 90%, rgba(124,58,237,0.14), transparent 45%),
+      var(--bg);
+    color:var(--purple-ink);
+    min-height:100vh;
+  }
+  .display{font-family:'Baloo 2', sans-serif;}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    background:var(--purple);
+    color:#fff;
+    padding:14px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .glasses{
+    width:44px;height:26px;flex-shrink:0;
+    background:var(--cyan);
+    border:3px solid var(--purple-ink);
+    border-radius:14px 14px 10px 10px;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+  }
+  .brand .glasses::before, .brand .glasses::after{
+    content:"";position:absolute;top:9px;width:14px;height:14px;
+    background:var(--purple);border-radius:50%;
+  }
+  .brand .glasses::before{left:5px;}
+  .brand .glasses::after{right:5px;}
+  .brand h1{font-size:26px;margin:0;letter-spacing:0.5px;color:var(--cyan);text-shadow:0 2px 0 var(--purple-ink);}
+  .brand span.tag{display:block;font-size:11px;font-weight:700;color:var(--lav);letter-spacing:2px;text-transform:uppercase;margin-top:-2px;}
+  .bcv-box{
+    background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.35);
+    border-radius:12px;
+    padding:8px 14px;
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;
+  }
+  .bcv-box input{
+    width:64px;border:none;border-radius:8px;padding:5px 6px;
+    font-family:'Nunito Sans',sans-serif;font-weight:700;text-align:center;
+  }
+
+  /* ---------- layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 340px;
+    gap:18px;
+    padding:18px;
+    align-items:start;
+  }
+  @media (max-width: 860px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  /* ---------- categories ---------- */
+  .categories{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding-bottom:6px;
+    margin-bottom:16px;
+  }
+  .cat-btn{
+    flex:0 0 auto;
+    font-family:'Baloo 2', sans-serif;
+    font-size:15px;
+    font-weight:700;
+    padding:10px 18px;
+    border-radius:999px;
+    border:2px solid var(--purple);
+    background:#fff;
+    color:var(--purple);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:transform .08s ease, background .15s ease, color .15s ease;
+  }
+  .cat-btn:active{transform:scale(0.95);}
+  .cat-btn.active{background:var(--purple);color:#fff;}
+
+  /* ---------- product grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:14px;
+  }
+  .card{
+    background:#fff;
+    border:2px solid var(--line);
+    border-radius:18px;
+    padding:14px;
+    cursor:pointer;
+    text-align:left;
+    box-shadow:var(--shadow);
+    transition:transform .1s ease, border-color .15s ease;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .card:active{transform:scale(0.97);}
+  .card:hover{border-color:var(--cyan-dark);}
+  .card .swatch{
+    width:100%;height:64px;border-radius:12px;
+    background:linear-gradient(135deg, var(--cyan), var(--lav-2));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Baloo 2',sans-serif;font-weight:800;font-size:22px;color:var(--purple-ink);
+  }
+  .card h3{font-family:'Baloo 2',sans-serif;margin:2px 0 0;font-size:17px;color:var(--purple-dark);}
+  .card p{margin:0;font-size:12.5px;color:#6b5b95;line-height:1.4;}
+  .card .price{margin-top:auto;font-weight:800;font-size:16px;color:var(--purple);}
+
+  /* ---------- cart panel ---------- */
+  .cart{
+    background:#fff;
+    border-radius:18px;
+    border:2px solid var(--line);
+    box-shadow:var(--shadow);
+    display:flex;flex-direction:column;
+    position:sticky;top:18px;
+    max-height:calc(100vh - 36px);
+  }
+  .cart-head{
+    padding:16px 16px 10px;
+    border-bottom:2px dashed var(--line);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .cart-head h2{font-family:'Baloo 2',sans-serif;margin:0;font-size:18px;color:var(--purple-dark);}
+  .cart-head button{
+    border:none;background:none;color:#a08fd6;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;
+  }
+  .cart-lines{
+    padding:8px 16px;
+    overflow-y:auto;
+    flex:1;
+    min-height:80px;
+  }
+  .empty-cart{
+    text-align:center;
+    padding:30px 10px;
+    color:#a08fd6;
+    font-size:13px;
+  }
+  .empty-cart .bubble{
+    display:inline-block;
+    background:var(--lav);
+    border:2px solid var(--purple);
+    border-radius:14px;
+    padding:10px 14px;
+    font-weight:700;
+    color:var(--purple-dark);
+    margin-bottom:8px;
+    font-size:13px;
+  }
+  .line{
+    border-bottom:1px solid var(--line);
+    padding:10px 0;
+    font-size:13px;
+  }
+  .line-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .line-top strong{font-family:'Baloo 2',sans-serif;font-size:14.5px;color:var(--purple-dark);}
+  .line-detail{color:#6b5b95;margin-top:3px;line-height:1.5;}
+  .line-remove{border:none;background:none;color:var(--danger);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}
+  .line-total{font-weight:800;color:var(--purple);white-space:nowrap;}
+
+  .cart-foot{
+    padding:14px 16px 16px;
+    border-top:2px dashed var(--line);
+  }
+  .totals-row{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;color:#6b5b95;}
+  .totals-row.grand{font-size:20px;font-weight:800;color:var(--purple-dark);margin-top:6px;}
+  .totals-row.bs{font-size:13px;color:#8f7fc7;}
+  .pay-btn{
+    width:100%;margin-top:12px;
+    background:var(--cyan);
+    color:var(--purple-ink);
+    border:none;border-radius:14px;
+    padding:14px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:17px;font-weight:700;
+    cursor:pointer;
+  }
+  .pay-btn:disabled{opacity:0.45;cursor:not-allowed;}
+  .pay-btn:active:not(:disabled){transform:scale(0.98);}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(46,16,101,0.55);
+    display:none;
+    align-items:center;justify-content:center;
+    padding:16px;
+    z-index:50;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:#fff;
+    border-radius:20px;
+    width:100%;max-width:480px;
+    max-height:88vh;
+    overflow-y:auto;
+    padding:22px;
+  }
+  .modal h2{font-family:'Baloo 2',sans-serif;margin:0 0 2px;color:var(--purple-dark);font-size:21px;}
+  .modal .modal-sub{font-size:13px;color:#8f7fc7;margin-bottom:14px;}
+  .section-label{
+    font-family:'Baloo 2',sans-serif;
+    font-size:14px;color:var(--purple);
+    margin:16px 0 8px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .section-label .count{font-size:11px;color:#a08fd6;font-weight:400;font-family:'Nunito Sans',sans-serif;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    border:2px solid var(--line);
+    background:#fbfaff;
+    border-radius:999px;
+    padding:8px 14px;
+    font-size:13px;font-weight:700;
+    color:var(--purple-dark);
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip.selected{background:var(--purple);border-color:var(--purple);color:#fff;}
+  .chip.disabled{opacity:0.35;cursor:not-allowed;}
+  .qty-row{display:flex;align-items:center;gap:14px;margin-top:18px;}
+  .qty-btn{
+    width:36px;height:36px;border-radius:10px;border:2px solid var(--purple);
+    background:#fff;color:var(--purple);font-size:18px;font-weight:800;cursor:pointer;
+  }
+  .qty-val{font-family:'Baloo 2',sans-serif;font-size:20px;min-width:24px;text-align:center;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .btn-ghost{
+    flex:1;padding:13px;border-radius:12px;border:2px solid var(--line);
+    background:#fff;color:#8f7fc7;font-weight:700;cursor:pointer;font-family:'Baloo 2',sans-serif;
+  }
+  .btn-primary{
+    flex:2;padding:13px;border-radius:12px;border:none;
+    background:var(--purple);color:#fff;font-weight:700;cursor:pointer;font-family:'Baloo 2',sans-serif;font-size:15px;
+  }
+
+  /* ---------- checkout confirm ---------- */
+  .confirm-box{text-align:center;padding:6px 0;}
+  .confirm-box .check-circle{
+    width:56px;height:56px;border-radius:50%;background:var(--lav);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+    font-size:28px;color:var(--purple);font-weight:800;
+  }
+  .pay-methods{display:flex;flex-direction:column;gap:8px;margin:14px 0;}
+  .pay-methods button{
+    border:2px solid var(--line);background:#fbfaff;border-radius:12px;padding:12px;
+    font-family:'Baloo 2',sans-serif;font-size:14px;color:var(--purple-dark);cursor:pointer;text-align:left;
+  }
+  .pay-methods button.chosen{border-color:var(--purple);background:var(--lav);}
+
+  .footnote{
+    max-width:1100px;margin:0 auto;padding:0 22px 22px;font-size:11.5px;color:#8f7fc7;line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="glasses"></div>
+    <div>
+      <h1 class="display">SABROOSKI</h1>
+      <span class="tag">Punto de venta táctil</span>
+    </div>
+  </div>
+  <div class="bcv-box">
+    Tasa BCV (Bs/USD)
+    <input id="bcvRate" type="number" value="200" min="1" step="0.01">
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="categories" id="categories"></div>
+    <div class="grid" id="productGrid"></div>
+  </div>
+
+  <div class="cart">
+    <div class="cart-head">
+      <h2 class="display">Orden actual</h2>
+      <button id="clearCart">Vaciar</button>
+    </div>
+    <div class="cart-lines" id="cartLines"></div>
+    <div class="cart-foot">
+      <div class="totals-row"><span>Artículos</span><span id="itemCount">0</span></div>
+      <div class="totals-row grand"><span>Total</span><span id="totalUsd">$0.00</span></div>
+      <div class="totals-row bs"><span>Equivalente</span><span id="totalBs">Bs 0,00</span></div>
+      <button class="pay-btn" id="payBtn" disabled>Cobrar</button>
+    </div>
+  </div>
+</div>
+
+<p class="footnote">
+  Demo estática de referencia visual — los precios son valores de ejemplo (el menú no trae precios), la tasa BCV es editable a mano y "Cobrar" no procesa pagos reales. Pensada como maqueta de la pantalla táctil que reemplazaría/ampliaría el TakePOS de Dolibarr.
+</p>
+
+<div class="overlay" id="productOverlay">
+  <div class="modal" id="productModal"></div>
+</div>
+
+<div class="overlay" id="payOverlay">
+  <div class="modal" id="payModal"></div>
+</div>
+
+<script>
+const PRODUCTS = [
+  {id:'barquillooski', name:'Barquillooski', desc:'110g · cono de galleta dulce y crujiente', price:2.50, maxFlavors:2, maxToppings:0, maxSyrup:1, syrupLabel:'Sirope', note:''},
+  {id:'barquifull', name:'Barquifull', desc:'160g · cono grande de galleta 7x15cm', price:4.00, maxFlavors:2, maxToppings:2, maxSyrup:1, syrupLabel:'Sirope', note:'Incluye 1 pirulín o 1 oreo (elige uno en toppings)'},
+  {id:'cestooski', name:'Cestooski', desc:'120g · cesta de galleta dulce 10.1x4.3cm', price:3.20, maxFlavors:2, maxToppings:2, maxSyrup:1, syrupLabel:'Sirope', note:'Incluye 1 oreo o 1 pirulín (elige uno en toppings)'},
+  {id:'maxifull', name:'Maxifull', desc:'135g · cono de galleta 5.2x14.7cm', price:3.60, maxFlavors:2, maxToppings:2, maxSyrup:1, syrupLabel:'Sirope'},
+  {id:'tinakids', name:'Tinakids', desc:'110g · vasito infantil', price:2.20, maxFlavors:2, maxToppings:2, maxSyrup:1, syrupLabel:'Sirope'},
+  {id:'sundooski', name:'Sundooski', desc:'170g · vaso de plástico tipo jazz', price:4.50, maxFlavors:2, maxToppings:2, maxSyrup:2, syrupLabel:'Siropes'}
+];
+
+const FLAVORS = ['Chocolate','Vainilla','Fresa','Ron con pasas','Coco','Parchita','Café','Chicle'];
+const TOPPINGS = ['Chispas de chocolate','Grageas de colores','Oreo triturado','Pirulín','Lluvia de colores','Coco rallado','Galleta triturada','Maní'];
+const SYRUPS = ['Chocolate','Fresa','Caramelo','Vainilla'];
+
+let cart = [];
+let current = null;
+
+function fmtUsd(n){ return '$' + n.toFixed(2); }
+function fmtBs(n){ return 'Bs ' + n.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function renderCategories(){
+  const bar = document.getElementById('categories');
+  bar.innerHTML = '';
+  const all = document.createElement('button');
+  all.className = 'cat-btn active';
+  all.textContent = 'Todos';
+  all.onclick = () => selectCat('all', all);
+  bar.appendChild(all);
+  PRODUCTS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn';
+    b.textContent = p.name;
+    b.onclick = () => selectCat(p.id, b);
+    bar.appendChild(b);
+  });
+}
+
+function selectCat(id, el){
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid(id === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.id === id));
+}
+
+function renderGrid(list){
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = '';
+  list.forEach(p => {
+    const card = document.createElement('button');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="swatch">${p.name[0]}</div>
+      <h3>${p.name}</h3>
+      <p>${p.desc}</p>
+      <div class="price">${fmtUsd(p.price)}</div>
+    `;
+    card.onclick = () => openProduct(p);
+    grid.appendChild(card);
+  });
+}
+
+function openProduct(p){
+  current = {product:p, flavors:[], toppings:[], syrups:[], qty:1};
+  renderModal();
+  document.getElementById('productOverlay').classList.add('open');
+}
+
+function closeProduct(){
+  document.getElementById('productOverlay').classList.remove('open');
+  current = null;
+}
+
+function toggleChoice(arr, val, max){
+  const idx = arr.indexOf(val);
+  if(idx > -1){ arr.splice(idx,1); return; }
+  if(max === 1){ arr.length = 0; arr.push(val); return; }
+  if(arr.length < max){ arr.push(val); }
+}
+
+function chipsHtml(options, selectedArr, max, groupKey){
+  return options.map(opt => {
+    const sel = selectedArr.includes(opt);
+    const blocked = !sel && max > 0 && selectedArr.length >= max;
+    const disabledClass = (max === 0 || blocked) ? 'disabled' : '';
+    return `<button type="button" class="chip ${sel?'selected':''} ${disabledClass}" data-group="${groupKey}" data-val="${opt}">${opt}</button>`;
+  }).join('');
+}
+
+function renderModal(){
+  const p = current.product;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = `
+    <h2>${p.name}</h2>
+    <div class="modal-sub">${p.desc} · ${fmtUsd(p.price)}${p.note ? ' — ' + p.note : ''}</div>
+
+    <div class="section-label">Sabores <span class="count">elige hasta ${p.maxFlavors}</span></div>
+    <div class="chips" id="flavorChips">${chipsHtml(FLAVORS, current.flavors, p.maxFlavors, 'flavor')}</div>
+
+    ${p.maxToppings > 0 ? `
+      <div class="section-label">Toppings <span class="count">elige hasta ${p.maxToppings}</span></div>
+      <div class="chips" id="toppingChips">${chipsHtml(TOPPINGS, current.toppings, p.maxToppings, 'topping')}</div>
+    ` : ''}
+
+    <div class="section-label">${p.syrupLabel || 'Sirope'} <span class="count">elige hasta ${p.maxSyrup}</span></div>
+    <div class="chips" id="syrupChips">${chipsHtml(SYRUPS, current.syrups, p.maxSyrup, 'syrup')}</div>
+
+    <div class="qty-row">
+      <button class="qty-btn" id="qtyMinus">-</button>
+      <span class="qty-val" id="qtyVal">${current.qty}</span>
+      <button class="qty-btn" id="qtyPlus">+</button>
+      <span style="margin-left:auto;font-weight:800;color:var(--purple);font-size:16px;" id="lineTotalPreview"></span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cancelProduct">Cancelar</button>
+      <button class="btn-primary" id="addProduct">Agregar a la orden</button>
+    </div>
+  `;
+
+  modal.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const group = chip.dataset.group;
+      const val = chip.dataset.val;
+      if(group === 'flavor') toggleChoice(current.flavors, val, p.maxFlavors);
+      if(group === 'topping') toggleChoice(current.toppings, val, p.maxToppings);
+      if(group === 'syrup') toggleChoice(current.syrups, val, p.maxSyrup);
+      renderModal();
+    });
+  });
+
+  document.getElementById('qtyMinus').onclick = () => { current.qty = Math.max(1, current.qty - 1); renderModal(); };
+  document.getElementById('qtyPlus').onclick = () => { current.qty += 1; renderModal(); };
+  document.getElementById('cancelProduct').onclick = closeProduct;
+  document.getElementById('addProduct').onclick = confirmAddProduct;
+  document.getElementById('lineTotalPreview').textContent = fmtUsd(p.price * current.qty);
+}
+
+function confirmAddProduct(){
+  const p = current.product;
+  if(current.flavors.length === 0){
+    alert('Selecciona al menos un sabor.');
+    return;
+  }
+  cart.push({
+    name: p.name,
+    unitPrice: p.price,
+    qty: current.qty,
+    flavors: [...current.flavors],
+    toppings: [...current.toppings],
+    syrups: [...current.syrups]
+  });
+  closeProduct();
+  renderCart();
+}
+
+function renderCart(){
+  const linesEl = document.getElementById('cartLines');
+  if(cart.length === 0){
+    linesEl.innerHTML = `<div class="empty-cart">
+        <div class="bubble">¡Lo sé! Es difícil elegir</div>
+        <div>Toca un producto para armar la orden.</div>
+      </div>`;
+  } else {
+    linesEl.innerHTML = cart.map((line, i) => {
+      const detailParts = [];
+      detailParts.push('Sabor: ' + line.flavors.join(', '));
+      if(line.toppings.length) detailParts.push('Topping: ' + line.toppings.join(', '));
+      if(line.syrups.length) detailParts.push('Sirope: ' + line.syrups.join(', '));
+      const lineTotal = line.unitPrice * line.qty;
+      return `
+        <div class="line">
+          <div class="line-top">
+            <div>
+              <strong>${line.qty}x ${line.name}</strong>
+              <div class="line-detail">${detailParts.join(' · ')}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="line-total">${fmtUsd(lineTotal)}</div>
+              <button class="line-remove" data-idx="${i}">Quitar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    linesEl.querySelectorAll('.line-remove').forEach(btn => {
+      btn.onclick = () => { cart.splice(Number(btn.dataset.idx), 1); renderCart(); };
+    });
+  }
+
+  const itemCount = cart.reduce((s,l) => s + l.qty, 0);
+  const totalUsd = cart.reduce((s,l) => s + l.unitPrice * l.qty, 0);
+  const rate = parseFloat(document.getElementById('bcvRate').value) || 0;
+
+  document.getElementById('itemCount').textContent = itemCount;
+  document.getElementById('totalUsd').textContent = fmtUsd(totalUsd);
+  document.getElementById('totalBs').textContent = fmtBs(totalUsd * rate);
+  document.getElementById('payBtn').disabled = cart.length === 0;
+}
+
+document.getElementById('bcvRate').addEventListener('input', renderCart);
+document.getElementById('clearCart').addEventListener('click', () => { cart = []; renderCart(); });
+
+document.getElementById('payBtn').addEventListener('click', () => {
+  const totalUsd = cart.reduce((s,l) => s + l.unitPrice * l.qty, 0);
+  const rate = parseFloat(document.getElementById('bcvRate').value) || 0;
+  const modal = document.getElementById('payModal');
+  modal.innerHTML = `
+    <div class="confirm-box">
+      <h2>Cobrar orden</h2>
+      <div class="modal-sub">Total ${fmtUsd(totalUsd)} · equivalente ${fmtBs(totalUsd*rate)}</div>
+      <div class="pay-methods" id="payMethods">
+        <button data-m="Efectivo USD">Efectivo USD</button>
+        <button data-m="Efectivo Bs">Efectivo Bs (a tasa BCV)</button>
+        <button data-m="Pago móvil">Pago móvil</button>
+        <button data-m="Tarjeta">Tarjeta / punto de venta</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelPay">Cerrar</button>
+        <button class="btn-primary" id="confirmPay" disabled>Confirmar cobro</button>
+      </div>
+    </div>
+  `;
+  let chosen = null;
+  modal.querySelectorAll('#payMethods button').forEach(b => {
+    b.onclick = () => {
+      modal.querySelectorAll('#payMethods button').forEach(x => x.classList.remove('chosen'));
+      b.classList.add('chosen');
+      chosen = b.dataset.m;
+      document.getElementById('confirmPay').disabled = false;
+    };
+  });
+  document.getElementById('cancelPay').onclick = () => document.getElementById('payOverlay').classList.remove('open');
+  document.getElementById('confirmPay').onclick = () => {
+    modal.innerHTML = `<div class="confirm-box">
+      <div class="check-circle">✓</div>
+      <h2>Orden cobrada</h2>
+      <div class="modal-sub">Pagado con ${chosen} · ${fmtUsd(totalUsd)}</div>
+      <div class="modal-actions"><button class="btn-primary" id="closeDone" style="flex:1;">Nueva orden</button></div>
+    </div>`;
+    document.getElementById('closeDone').onclick = () => {
+      cart = [];
+      renderCart();
+      document.getElementById('payOverlay').classList.remove('open');
+    };
+  };
+  document.getElementById('payOverlay').classList.add('open');
+});
+
+renderCategories();
+renderGrid(PRODUCTS);
+renderCart();
+</script>
+</body>
+</html>
