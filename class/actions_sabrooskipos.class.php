@@ -55,6 +55,10 @@ class ActionsSabrooskipos
 			array(
 				'title' => '<span class="fa fa-ice-cream paddingrightonly"></span><div class="trunc">Toma de orden</div>',
 				'action' => 'SabrooskiTomaDeOrden();',
+				// Fondo púrpura de la paleta Sabrooski (dominando sobre el beige
+				// nativo .actionbutton) para destacar el botón en la barra del POS.
+				// takepos/index.php ya imprime $menu['style'] inline en el botón.
+				'style' => 'background:#7c3aed; color:#fff; border-color:#7c3aed;',
 			)
 		);
 
