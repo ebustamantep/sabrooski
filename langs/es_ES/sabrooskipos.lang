@@ -37,6 +37,7 @@ SabrooskiHiddenCategoriesDesc = IDs de categoría (separados por coma) que NO de
 
 # Configuración por terminal
 ConfiguringFor = Configurando para
+SabrooskiNoteGlobalConfig = Los ajustes de sabores/toppings/siropes se configuran en la pestaña de cada terminal (Terminal 1, Terminal 2...), no aquí.
 
 # About
 About = Acerca de

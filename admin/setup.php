@@ -70,11 +70,12 @@ if (!$user->admin) {
 $action = GETPOST('action', 'aZ09');
 $error = 0;
 
-// Terminal que se está configurando (pestaña). Se usa como sufijo de las
-// constantes SABROOSKIPOS_* para que cada punto de venta tenga su config.
+// Terminal que se está configurando. 0 = pestaña "Configuración" (global, params
+// generales del TakePOS). >0 = pestaña del terminal (solo la parte Sabrooski:
+// sabores/toppings/siropes/ocultas de ese punto de venta).
 $terminal = GETPOSTINT('terminal');
-if ($terminal <= 0) {
-	$terminal = 1;
+if ($terminal < 0) {
+	$terminal = 0;
 }
 $term = $terminal; // alias corto
 
@@ -84,47 +85,48 @@ $term = $terminal; // alias corto
 if ($action == 'set' && $user->admin) {
 	$db->begin();
 
-	// Constantes GLOBALES del TakePOS (sin sufijo de terminal)
-	$consts = array(
-		'TAKEPOS_ROOT_CATEGORY_ID' => GETPOST('TAKEPOS_ROOT_CATEGORY_ID', 'alpha'),
-		'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
-		'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
-	);
-	foreach ($consts as $key => $val) {
-		$res = dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
-		if (!($res > 0)) {
-			$error++;
+	// Pestaña global (Configuración): solo constantes de parámetros generales.
+	if ($terminal == 0) {
+		$consts = array(
+			'TAKEPOS_ROOT_CATEGORY_ID' => GETPOST('TAKEPOS_ROOT_CATEGORY_ID', 'alpha'),
+			'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
+			'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
+		);
+		foreach ($consts as $key => $val) {
+			$res = dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
+			if (!($res > 0)) {
+				$error++;
+			}
 		}
-	}
 
-	// Constantes POR TERMINAL (sufijo = nº de terminal). Así el Terminal 1 y el
-	// Terminal 2 pueden tener categorías de sabores/toppings/siropes distintas.
-	$conststerm = array(
-		'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
-		'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
-		'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
-		'SABROOSKIPOS_HIDDEN_CATEGORIES' => GETPOST('SABROOSKIPOS_HIDDEN_CATEGORIES', 'alpha'),
-	);
-	foreach ($conststerm as $key => $val) {
-		$res = dolibarr_set_const($db, $key.$term, $val, 'chaine', 0, '', $conf->entity);
-		if (!($res > 0)) {
-			$error++;
+		$constsyesno = array(
+			'TAKEPOS_GROUP_SAME_PRODUCT',
+			'TAKEPOS_DIRECT_PAYMENT',
+			'TAKEPOS_SHOW_HT',
+			'TAKEPOS_CHANGE_PRICE_HT',
+			'TAKEPOS_HIDE_PRODUCT_PRICES',
+			'TAKEPOS_HIDE_CATEGORY_IMAGES',
+			'TAKEPOS_SHOW_CATEGORY_DESCRIPTION',
+		);
+		foreach ($constsyesno as $key) {
+			$res = dolibarr_set_const($db, $key, GETPOST($key, 'alpha'), 'chaine', 0, '', $conf->entity);
+			if (!($res > 0)) {
+				$error++;
+			}
 		}
-	}
-
-	$constsyesno = array(
-		'TAKEPOS_GROUP_SAME_PRODUCT',
-		'TAKEPOS_DIRECT_PAYMENT',
-		'TAKEPOS_SHOW_HT',
-		'TAKEPOS_CHANGE_PRICE_HT',
-		'TAKEPOS_HIDE_PRODUCT_PRICES',
-		'TAKEPOS_HIDE_CATEGORY_IMAGES',
-		'TAKEPOS_SHOW_CATEGORY_DESCRIPTION',
-	);
-	foreach ($constsyesno as $key) {
-		$res = dolibarr_set_const($db, $key, GETPOST($key, 'alpha'), 'chaine', 0, '', $conf->entity);
-		if (!($res > 0)) {
-			$error++;
+	} else {
+		// Pestaña de un terminal: SOLO la parte Sabrooski (no se repite lo global).
+		$conststerm = array(
+			'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
+			'SABROOSKIPOS_HIDDEN_CATEGORIES' => GETPOST('SABROOSKIPOS_HIDDEN_CATEGORIES', 'alpha'),
+		);
+		foreach ($conststerm as $key => $val) {
+			$res = dolibarr_set_const($db, $key.$term, $val, 'chaine', 0, '', $conf->entity);
+			if (!($res > 0)) {
+				$error++;
+			}
 		}
 	}
 
@@ -154,124 +156,131 @@ print load_fiche_titre($langs->trans($title), $linkback, 'title_setup');
 // Configuration header
 if (function_exists('sabrooskiposAdminPrepareHead')) {
 	$head = sabrooskiposAdminPrepareHead();
-	$activeselectedtab = ($terminal > 1 ? 'terminal'.$terminal : 'settings');
+	$activeselectedtab = ($terminal > 0 ? 'terminal'.$terminal : 'settings');
 	print dol_get_fiche_head($head, $activeselectedtab, $langs->trans($title), -1, "sabrooskipos@sabrooskipos");
 }
-
-// Titulo de la pestaña: indica qué terminal se está configurando.
-$terminalName = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$terminal, $langs->trans("TerminalName", $terminal));
-print '<div class="opacitymedium marginbottom">'.$langs->trans('ConfiguringFor').': <b>'.$terminalName.'</b></div>';
 
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?terminal='.$terminal.'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="set">';
 
+// En la pestaña de terminal mostramos un subtítulo indicando cuál se configura.
+if ($terminal > 0) {
+	$terminalName = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$terminal, $langs->trans("TerminalName", $terminal));
+	print '<div class="opacitymedium marginbottom">'.$langs->trans('ConfiguringFor').': <b>'.$terminalName.'</b></div>';
+}
+
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
 
-print '<tr class="liste_titre"><td class="titlefield">'.$langs->trans("Parameters").'</td><td></td></tr>';
+// ---- PESTAÑA GLOBAL (Configuración): solo parámetros generales del TakePOS ----
+if ($terminal == 0) {
+	print '<tr class="liste_titre"><td class="titlefield">'.$langs->trans("Parameters").'</td><td></td></tr>';
 
-// Root category for products
-print '<tr class="oddeven"><td>';
-print $form->textwithpicto($langs->trans("RootCategoryForProductsToSell"), $langs->trans("RootCategoryForProductsToSellDesc"));
-print '</td><td>';
-print img_object('', 'category', 'class="paddingright"').$form->select_all_categories(Categorie::TYPE_PRODUCT, getDolGlobalInt('TAKEPOS_ROOT_CATEGORY_ID'), 'TAKEPOS_ROOT_CATEGORY_ID', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-print ajax_combobox('TAKEPOS_ROOT_CATEGORY_ID');
-print '</td></tr>';
+	// Root category for products
+	print '<tr class="oddeven"><td>';
+	print $form->textwithpicto($langs->trans("RootCategoryForProductsToSell"), $langs->trans("RootCategoryForProductsToSellDesc"));
+	print '</td><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->select_all_categories(Categorie::TYPE_PRODUCT, getDolGlobalInt('TAKEPOS_ROOT_CATEGORY_ID'), 'TAKEPOS_ROOT_CATEGORY_ID', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('TAKEPOS_ROOT_CATEGORY_ID');
+	print '</td></tr>';
 
-// Number of terminals
-print '<tr class="oddeven"><td>';
-print $langs->trans("NumberTerminals");
-print '</td><td>';
-print '<input type="text" name="TAKEPOS_NUM_TERMINALS" value="'.getDolGlobalString('TAKEPOS_NUM_TERMINALS', 1).'">';
-print '</td></tr>';
+	// Number of terminals
+	print '<tr class="oddeven"><td>';
+	print $langs->trans("NumberTerminals");
+	print '</td><td>';
+	print '<input type="text" name="TAKEPOS_NUM_TERMINALS" value="'.getDolGlobalString('TAKEPOS_NUM_TERMINALS', 1).'">';
+	print '</td></tr>';
 
-// Sort product
-print '<tr class="oddeven"><td>';
-print $langs->trans("SortProductField");
-print '</td><td>';
-$array = array('rowid' => 'ID', 'ref' => 'Ref', 'label' => 'Label', 'datec' => 'DateCreation', 'tms' => 'DateModification');
-print $form->selectarray('TAKEPOS_SORTPRODUCTFIELD', $array, getDolGlobalString('TAKEPOS_SORTPRODUCTFIELD', 'rowid'), 0, 0, 0, '', 1);
-print '</td></tr>';
+	// Sort product
+	print '<tr class="oddeven"><td>';
+	print $langs->trans("SortProductField");
+	print '</td><td>';
+	$array = array('rowid' => 'ID', 'ref' => 'Ref', 'label' => 'Label', 'datec' => 'DateCreation', 'tms' => 'DateModification');
+	print $form->selectarray('TAKEPOS_SORTPRODUCTFIELD', $array, getDolGlobalString('TAKEPOS_SORTPRODUCTFIELD', 'rowid'), 0, 0, 0, '', 1);
+	print '</td></tr>';
 
-// Group same product
-print '<tr class="oddeven"><td>';
-print $langs->trans('TakeposGroupSameProduct');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_GROUP_SAME_PRODUCT", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Group same product
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('TakeposGroupSameProduct');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_GROUP_SAME_PRODUCT", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Direct payment
-print '<tr class="oddeven"><td>';
-print $langs->trans('DirectPaymentButton');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_DIRECT_PAYMENT", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Direct payment
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('DirectPaymentButton');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_DIRECT_PAYMENT", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Show price without vat
-print '<tr class="oddeven"><td>';
-print $langs->trans('ShowPriceHT');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_SHOW_HT", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Show price without vat
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('ShowPriceHT');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_SHOW_HT", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Use price excl. taxes (HT)
-print '<tr class="oddeven"><td>';
-print $langs->trans('UsePriceHT');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_CHANGE_PRICE_HT", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Use price excl. taxes (HT)
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('UsePriceHT');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_CHANGE_PRICE_HT", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Hide product prices in grid
-print '<tr class="oddeven"><td>';
-print $langs->trans('TakeposHideProductPrices');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_HIDE_PRODUCT_PRICES", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Hide product prices in grid
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('TakeposHideProductPrices');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_HIDE_PRODUCT_PRICES", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Hide category images
-print '<tr class="oddeven"><td>';
-print $langs->trans('TakeposHideCategoryImages');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_HIDE_CATEGORY_IMAGES", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Hide category images
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('TakeposHideCategoryImages');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_HIDE_CATEGORY_IMAGES", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// Show category description
-print '<tr class="oddeven"><td>';
-print $langs->trans('TakeposShowCategoryDescription');
-print '</td><td>';
-print ajax_constantonoff("TAKEPOS_SHOW_CATEGORY_DESCRIPTION", array(), $conf->entity, 0, 0, 1, 0);
-print '</td></tr>';
+	// Show category description
+	print '<tr class="oddeven"><td>';
+	print $langs->trans('TakeposShowCategoryDescription');
+	print '</td><td>';
+	print ajax_constantonoff("TAKEPOS_SHOW_CATEGORY_DESCRIPTION", array(), $conf->entity, 0, 0, 1, 0);
+	print '</td></tr>';
 
-// --- Sabrooski: categorías usadas por el modal de personalización ---
-print '<tr class="liste_titre"><td class="titlefield">'.$langs->trans("SabrooskiPOSSetup").'</td><td></td></tr>';
+	print '<tr><td colspan="2" class="opacitymedium">'.$langs->trans("SabrooskiNoteGlobalConfig").'</td></tr>';
+} else {
+	// ---- PESTAÑA DE TERMINAL: SOLO la sección Sabrooski (sabores/toppings/siropes/ocultas) ----
+	print '<tr class="liste_titre"><td class="titlefield">'.$langs->trans("SabrooskiPOSSetup").'</td><td></td></tr>';
 
-print '<tr class="oddeven"><td>';
-print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryFlavors"), $langs->trans("SabrooskiCategoryFlavorsDesc"));
-print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term), 'SABROOSKIPOS_CATEGORY_FLAVORS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-print ajax_combobox('SABROOSKIPOS_CATEGORY_FLAVORS');
-print '</td></tr>';
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryFlavors"), $langs->trans("SabrooskiCategoryFlavorsDesc"));
+	print '</td><td>';
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term), 'SABROOSKIPOS_CATEGORY_FLAVORS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_FLAVORS');
+	print '</td></tr>';
 
-print '<tr class="oddeven"><td>';
-print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryToppings"), $langs->trans("SabrooskiCategoryToppingsDesc"));
-print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-print ajax_combobox('SABROOSKIPOS_CATEGORY_TOPPINGS');
-print '</td></tr>';
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryToppings"), $langs->trans("SabrooskiCategoryToppingsDesc"));
+	print '</td><td>';
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_TOPPINGS');
+	print '</td></tr>';
 
-print '<tr class="oddeven"><td>';
-print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategorySyrups"), $langs->trans("SabrooskiCategorySyrupsDesc"));
-print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-print ajax_combobox('SABROOSKIPOS_CATEGORY_SYRUPS');
-print '</td></tr>';
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategorySyrups"), $langs->trans("SabrooskiCategorySyrupsDesc"));
+	print '</td><td>';
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_SYRUPS');
+	print '</td></tr>';
 
-print '<tr class="oddeven"><td>';
-print $form->textwithpicto($langs->trans("SabrooskiHiddenCategories"), $langs->trans("SabrooskiHiddenCategoriesDesc"));
-print '</td><td>';
-print '<input type="text" name="SABROOSKIPOS_HIDDEN_CATEGORIES" value="'.dol_escape_htmltag(sabrooskiposGetConst('SABROOSKIPOS_HIDDEN_CATEGORIES', $term)).'" placeholder="Ej: 8 (IDs separados por coma)">';
-print '</td></tr>';
+	print '<tr class="oddeven"><td>';
+	print $form->textwithpicto($langs->trans("SabrooskiHiddenCategories"), $langs->trans("SabrooskiHiddenCategoriesDesc"));
+	print '</td><td>';
+	print '<input type="text" name="SABROOSKIPOS_HIDDEN_CATEGORIES" value="'.dol_escape_htmltag(sabrooskiposGetConst('SABROOSKIPOS_HIDDEN_CATEGORIES', $term)).'" placeholder="Ej: 8 (IDs separados por coma)">';
+	print '</td></tr>';
+}
 
 print '</table>';
 print '</div>';
