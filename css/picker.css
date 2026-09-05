@@ -19,9 +19,13 @@
 
 .picker-root {
 	padding: 16px;
-	max-width: 1100px;
-	margin: 0 auto;
+	/* Llenar todo el ancho del popup (iframe). Sin max-width ni centrado, para
+	   que el cuadro de toma de orden cubra todo el espacio disponible. */
+	width: 100%;
+	box-sizing: border-box;
 }
+/* El panel interno se expande hasta llenar el contenedor. */
+.picker-root > .pk-panel { width: 100%; }
 .pk-loading, .pk-error, .pk-done {
 	text-align: center;
 	padding: 40px 16px;
@@ -264,6 +268,16 @@
 }
 .pk-cart-lines { padding: 8px 16px; overflow-y: auto; flex: 1; min-height: 120px; }
 .pk-empty { text-align: center; padding: 24px 10px; color: #a08fd6; font-size: 13px; line-height: 1.5; }
+.pk-bubble {
+	display: inline-block;
+	background: #e9e2ff;               /* --lav */
+	border: 2px solid #7c3aed;         /* --purple */
+	border-radius: 14px;
+	padding: 10px 14px;
+	font-weight: 700;
+	color: #5b21b6;                    /* --purple-dark */
+	margin-bottom: 8px;
+}
 .pk-line { border-bottom: 1px solid #e4defc; padding: 12px 0; font-size: 13px; }
 .pk-line-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .pk-line-top strong { font-family: 'Baloo 2', sans-serif; font-size: 14px; color: #5b21b6; }

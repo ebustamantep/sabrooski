@@ -53,7 +53,7 @@ class ActionsSabrooskipos
 		// de botones (un botón más aunque sea uno solo).
 		$this->results[] = array(
 			array(
-				'title' => '<span class="fa fa-ice-cream paddingrightonly"></span><div class="trunc">Toma de orden</div>',
+				'title' => '<span class="fa fa-ice-cream paddingrightonly" style="font-size:1.5em; line-height:1;"></span><div class="trunc">Toma de orden</div>',
 				'action' => 'SabrooskiTomaDeOrden();',
 				// Fondo púrpura de la paleta Sabrooski (dominando sobre el beige
 				// nativo .actionbutton) para destacar el botón en la barra del POS.

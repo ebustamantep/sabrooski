@@ -147,7 +147,7 @@
 				var linesEl = $('#pkCartLines', cart);
 
 				if (!lines.length) {
-					linesEl.innerHTML = '<div class="pk-empty">El pedido está vacío.<br>Toca un producto para armar la orden.</div>';
+					linesEl.innerHTML = '<div class="pk-empty"><div class="pk-bubble">¡Lo sé! Es difícil elegir</div><br>Toca un producto para armar la orden.</div>';
 				} else {
 					linesEl.innerHTML = lines.map(function (line) {
 						var detail = line.desc ? '<div class="pk-line-detail">' + esc(line.desc) + '</div>' : '';
