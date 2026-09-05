@@ -57,6 +57,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos.lib.php';
 
 // Translations
 $langs->loadLangs(array("admin", "cashdesk", "sabrooskipos@sabrooskipos"));
@@ -69,22 +70,43 @@ if (!$user->admin) {
 $action = GETPOST('action', 'aZ09');
 $error = 0;
 
+// Terminal que se está configurando (pestaña). Se usa como sufijo de las
+// constantes SABROOSKIPOS_* para que cada punto de venta tenga su config.
+$terminal = GETPOSTINT('terminal');
+if ($terminal <= 0) {
+	$terminal = 1;
+}
+$term = $terminal; // alias corto
+
 /*
  * Actions
  */
 if ($action == 'set' && $user->admin) {
 	$db->begin();
 
+	// Constantes GLOBALES del TakePOS (sin sufijo de terminal)
 	$consts = array(
 		'TAKEPOS_ROOT_CATEGORY_ID' => GETPOST('TAKEPOS_ROOT_CATEGORY_ID', 'alpha'),
 		'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
 		'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
-		'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
-		'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
-		'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
 	);
 	foreach ($consts as $key => $val) {
 		$res = dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
+		if (!($res > 0)) {
+			$error++;
+		}
+	}
+
+	// Constantes POR TERMINAL (sufijo = nº de terminal). Así el Terminal 1 y el
+	// Terminal 2 pueden tener categorías de sabores/toppings/siropes distintas.
+	$conststerm = array(
+		'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
+		'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
+		'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
+		'SABROOSKIPOS_HIDDEN_CATEGORIES' => GETPOST('SABROOSKIPOS_HIDDEN_CATEGORIES', 'alpha'),
+	);
+	foreach ($conststerm as $key => $val) {
+		$res = dolibarr_set_const($db, $key.$term, $val, 'chaine', 0, '', $conf->entity);
 		if (!($res > 0)) {
 			$error++;
 		}
@@ -132,10 +154,15 @@ print load_fiche_titre($langs->trans($title), $linkback, 'title_setup');
 // Configuration header
 if (function_exists('sabrooskiposAdminPrepareHead')) {
 	$head = sabrooskiposAdminPrepareHead();
-	print dol_get_fiche_head($head, 'settings', $langs->trans($title), -1, "sabrooskipos@sabrooskipos");
+	$activeselectedtab = ($terminal > 1 ? 'terminal'.$terminal : 'settings');
+	print dol_get_fiche_head($head, $activeselectedtab, $langs->trans($title), -1, "sabrooskipos@sabrooskipos");
 }
 
-print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+// Titulo de la pestaña: indica qué terminal se está configurando.
+$terminalName = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$terminal, $langs->trans("TerminalName", $terminal));
+print '<div class="opacitymedium marginbottom">'.$langs->trans('ConfiguringFor').': <b>'.$terminalName.'</b></div>';
+
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?terminal='.$terminal.'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="set">';
 
@@ -222,22 +249,28 @@ print '<tr class="liste_titre"><td class="titlefield">'.$langs->trans("Sabrooski
 print '<tr class="oddeven"><td>';
 print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryFlavors"), $langs->trans("SabrooskiCategoryFlavorsDesc"));
 print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, getDolGlobalInt('SABROOSKIPOS_CATEGORY_FLAVORS'), 'SABROOSKIPOS_CATEGORY_FLAVORS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term), 'SABROOSKIPOS_CATEGORY_FLAVORS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
 print ajax_combobox('SABROOSKIPOS_CATEGORY_FLAVORS');
 print '</td></tr>';
 
 print '<tr class="oddeven"><td>';
 print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryToppings"), $langs->trans("SabrooskiCategoryToppingsDesc"));
 print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, getDolGlobalInt('SABROOSKIPOS_CATEGORY_TOPPINGS'), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
 print ajax_combobox('SABROOSKIPOS_CATEGORY_TOPPINGS');
 print '</td></tr>';
 
 print '<tr class="oddeven"><td>';
 print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategorySyrups"), $langs->trans("SabrooskiCategorySyrupsDesc"));
 print '</td><td>';
-print $form->select_all_categories(Categorie::TYPE_PRODUCT, getDolGlobalInt('SABROOSKIPOS_CATEGORY_SYRUPS'), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
 print ajax_combobox('SABROOSKIPOS_CATEGORY_SYRUPS');
+print '</td></tr>';
+
+print '<tr class="oddeven"><td>';
+print $form->textwithpicto($langs->trans("SabrooskiHiddenCategories"), $langs->trans("SabrooskiHiddenCategoriesDesc"));
+print '</td><td>';
+print '<input type="text" name="SABROOSKIPOS_HIDDEN_CATEGORIES" value="'.dol_escape_htmltag(sabrooskiposGetConst('SABROOSKIPOS_HIDDEN_CATEGORIES', $term)).'" placeholder="Ej: 8 (IDs separados por coma)">';
 print '</td></tr>';
 
 print '</table>';

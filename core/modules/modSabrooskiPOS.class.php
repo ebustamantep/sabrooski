@@ -182,6 +182,10 @@ class modSabrooskiPOS extends DolibarrModules
 			1 => array('SABROOSKIPOS_CATEGORY_FLAVORS', 'chaine', '', 'Categoría de sabores de helado', 0),
 			2 => array('SABROOSKIPOS_CATEGORY_TOPPINGS', 'chaine', '', 'Categoría de toppings', 0),
 			3 => array('SABROOSKIPOS_CATEGORY_SYRUPS', 'chaine', '', 'Categoría de siropes', 0),
+			// Categorías a OCULTAR en el popup "Toma de orden" (IDs separados por coma).
+			// Ej.: '8' para ocultar la categoría "Venta al mayor". Vacío = mostrar todas.
+			// Se usa para que categorías que no son de toma de pedidos no aparezcan.
+			4 => array('SABROOSKIPOS_HIDDEN_CATEGORIES', 'chaine', '', 'Categorías ocultas en el popup (IDs separados por coma)', 0),
 		);
 
 		// Some keys to add into the overwriting translation tables

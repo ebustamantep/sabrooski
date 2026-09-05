@@ -23,6 +23,33 @@
  */
 
 /**
+ * Leer una constante de configuración del módulo por terminal, con fallback al
+ * valor global (sin sufijo de terminal) para compatibilidad.
+ *
+ * Convención: si existe la constante <NAME><term> (ej. SABROOSKIPOS_CATEGORY_FLAVORS2)
+ * se usa; si no, se usa la constante global <NAME> (sin terminal).
+ *
+ * @param string $name      Nombre base de la constante (ej. 'SABROOSKIPOS_CATEGORY_FLAVORS')
+ * @param int    $term      Número de terminal (1, 2, ...)
+ * @return string           Valor de la constante ('' si no existe)
+ */
+function sabrooskiposGetConst($name, $term = 0)
+{
+	$term = (int) $term;
+	$key = $name.($term > 0 ? $term : '');
+
+	$val = getDolGlobalString($key);
+	$val = trim((string) $val);
+
+	// Si el terminal no tiene valor propio, caemos al valor global (sin sufijo).
+	if ($val === '' && $term > 0 && $name !== $key) {
+		$val = trim((string) getDolGlobalString($name));
+	}
+
+	return $val;
+}
+
+/**
  * Prepare admin pages header
  *
  * @return array<array{string,string,string}>
@@ -44,6 +71,16 @@ function sabrooskiposAdminPrepareHead()
 	$head[$h][1] = $langs->trans("Settings");
 	$head[$h][2] = 'settings';
 	$h++;
+
+	// Pestañas por terminal (como el TakePOS nativo). Cada punto de venta
+	// (Terminal 1, 2...) tiene su propia configuración de categorías.
+	$numterminals = max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1));
+	for ($i = 1; $i <= $numterminals; $i++) {
+		$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/setup.php", 1)).'?terminal='.$i;
+		$head[$h][1] = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$i, $langs->trans("TerminalName", $i));
+		$head[$h][2] = 'terminal'.$i;
+		$h++;
+	}
 
 	/*
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/myobject_extrafields.php", 1));

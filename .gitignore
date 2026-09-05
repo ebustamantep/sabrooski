@@ -3,6 +3,9 @@
 *.zip
 *.tar.gz
 
+# Scripts de prueba locales (no forman parte del módulo desplegable)
+/test/
+
 # Otros temporales que no deben subir
 *.log
 *.tmp

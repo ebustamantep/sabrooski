@@ -55,6 +55,7 @@ $langs->loadLangs(array("sabrooskipos@sabrooskipos", "cashdesk", "bills", "produ
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos.lib.php';
 
 // Security check: solo el permiso del TakePOS.
 if (! $user->hasRight('takepos', 'run')) {
@@ -63,6 +64,9 @@ if (! $user->hasRight('takepos', 'run')) {
 
 $action = GETPOST('action', 'aZ09');
 $idproduct = GETPOSTINT('idproduct');
+
+// Terminal activo (para leer las configuraciones por terminal).
+$term = empty($_SESSION['takeposterminal']) ? 1 : (int) $_SESSION['takeposterminal'];
 
 top_httphead('application/json');
 
@@ -89,9 +93,18 @@ function pickerCategories($db)
 	}
 	$levelofmaincategories = $levelofrootcategory + 1;
 
+	// Categorías a ocultar en el popup (IDs separados por coma en
+	// SABROOSKIPOS_HIDDEN_CATEGORIES[term]). Vacío = mostrar todas.
+	global $term;
+	$hiddenCatsStr = sabrooskiposGetConst('SABROOSKIPOS_HIDDEN_CATEGORIES', isset($term) ? $term : 0);
+	$hiddenCats = array_filter(array_map('intval', explode(',', (string) $hiddenCatsStr)));
+
 	$res = array();
 	foreach ($categories as $key => $categorycursor) {
 		if ($categorycursor['level'] == $levelofmaincategories) {
+			if (in_array((int) $categorycursor['id'], $hiddenCats)) {
+				continue; // categoría oculta (Venta al mayor, etc.)
+			}
 			$res[] = array('id' => (int) $categorycursor['id'], 'label' => $categorycursor['label']);
 		}
 	}
@@ -133,9 +146,9 @@ function pickerSimpleProducts($db, $catid)
 if ($action == 'getData') {
 	echo json_encode(array(
 		'categories' => pickerCategories($db),
-		'flavors' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_FLAVORS')),
-		'toppings' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_TOPPINGS')),
-		'syrups' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_SYRUPS')),
+		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
+		'toppings' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term)),
+		'syrups' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term)),
 	));
 	exit;
 }
@@ -231,9 +244,9 @@ if ($action == 'getProduct') {
 			'max_toppings_incluidos' => $maxToppings,
 			'max_sirope' => $maxSirope,
 		),
-		'flavors' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_FLAVORS')),
-		'toppings' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_TOPPINGS')),
-		'syrups' => pickerSimpleProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_SYRUPS')),
+		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
+		'toppings' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term)),
+		'syrups' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term)),
 	));
 	exit;
 }

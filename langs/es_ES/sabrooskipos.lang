@@ -31,6 +31,13 @@ SabrooskiCategoryToppingsDesc = Categoría de Dolibarr que agrupa los productos 
 SabrooskiCategorySyrups = Categoría de siropes
 SabrooskiCategorySyrupsDesc = Categoría de Dolibarr que agrupa los productos de sirope
 
+# Categorías ocultas en el popup "Toma de orden"
+SabrooskiHiddenCategories = Categorías ocultas en el popup
+SabrooskiHiddenCategoriesDesc = IDs de categoría (separados por coma) que NO deben aparecer en la toma de orden. Ej: 8 para ocultar "Venta al mayor". Vacío = mostrar todas.
+
+# Configuración por terminal
+ConfiguringFor = Configurando para
+
 # About
 About = Acerca de
 SabrooskiPOSAbout = Acerca de Sabrooski POS

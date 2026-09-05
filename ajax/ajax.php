@@ -60,6 +60,7 @@ $langs->loadLangs(array("sabrooskipos@sabrooskipos", "cashdesk", "bills", "produ
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
 require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos.lib.php';
 
 // Security check
 if (! $user->hasRight('takepos', 'run')) {
@@ -341,9 +342,9 @@ if ($action == 'getModalData') {
 	);
 
 	// --- Listas de sabores / toppings / siropes ---
-	$flavors = getCategoryProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_FLAVORS'));
-	$toppings = getCategoryProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_TOPPINGS'));
-	$syrups = getCategoryProducts($db, getDolGlobalInt('SABROOSKIPOS_CATEGORY_SYRUPS'));
+	$flavors = getCategoryProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term));
+	$toppings = getCategoryProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term));
+	$syrups = getCategoryProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term));
 
 	echo json_encode(array(
 		'product' => $product,
