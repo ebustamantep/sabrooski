@@ -1,0 +1,42 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModuleSabrooskiPOSName'
+ModuleSabrooskiPOSName = SabrooskiPOS
+# Module description 'ModuleSabrooskiPOSDesc'
+ModuleSabrooskiPOSDesc = SabrooskiPOS description
+
+#
+# Admin page
+#
+SabrooskiPOSSetup = SabrooskiPOS setup
+Settings = Settings
+SabrooskiPOSSetupPage = SabrooskiPOS setup page
+NewSection=New section
+SABROOSKIPOS_MYPARAM1 = My param 1
+SABROOSKIPOS_MYPARAM1Tooltip = My param 1 tooltip
+SABROOSKIPOS_MYPARAM2=My param 2
+SABROOSKIPOS_MYPARAM2Tooltip=My param 2 tooltip
+
+
+#
+# About page
+#
+About = About
+SabrooskiPOSAbout = About SabrooskiPOS
+SabrooskiPOSAboutPage = SabrooskiPOS about page
+
+#
+# Sample page
+#
+SabrooskiPOSArea = Home SabrooskiPOS
+MyPageName = My page name
+
+#
+# Sample widget
+#
+MyWidget = My widget
+MyWidgetDescription = My widget description

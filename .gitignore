@@ -1,0 +1,10 @@
+# Artefactos de build (generados, no versionar)
+/build/
+*.zip
+*.tar.gz
+
+# Otros temporales que no deben subir
+*.log
+*.tmp
+Thumbs.db
+.DS_Store

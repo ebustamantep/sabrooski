@@ -1,0 +1,49 @@
+# Archivo de traducción del módulo SabrooskiPOS
+
+# Módulo
+ModuleSabrooskiPOSName = Sabrooski POS
+ModuleSabrooskiPOSDesc = Punto de venta táctil para Sabrooski (heladería). Pantalla custom sobre Dolibarr TakePOS.
+
+# Permisos
+UseSabrooskiPOS = Usar Sabrooski POS
+
+# Página principal
+SabrooskiPOSArea = Punto de venta Sabrooski
+MyPageName = Mi página
+
+# Admin
+SabrooskiPOSSetup = Configuración Sabrooski POS
+Settings = Ajustes
+SabrooskiPOSSetupPage = Página de configuración de Sabrooski POS
+NewSection = Nueva sección
+
+# Claves de configuración propias (algunas no están en cashdesk/admin)
+NumberTerminals = Número de terminales
+TakeposHideProductPrices = Ocultar precios de productos en el grid
+TakeposHideCategoryImages = Ocultar imágenes de categorías
+TakeposShowCategoryDescription = Mostrar descripción de categorías
+
+# Sabrooski: categorías del modal de personalización
+SabrooskiCategoryFlavors = Categoría de sabores
+SabrooskiCategoryFlavorsDesc = Categoría de Dolibarr que agrupa los productos de sabor de helado
+SabrooskiCategoryToppings = Categoría de toppings
+SabrooskiCategoryToppingsDesc = Categoría de Dolibarr que agrupa los productos de topping
+SabrooskiCategorySyrups = Categoría de siropes
+SabrooskiCategorySyrupsDesc = Categoría de Dolibarr que agrupa los productos de sirope
+
+# About
+About = Acerca de
+SabrooskiPOSAbout = Acerca de Sabrooski POS
+SabrooskiPOSAboutPage = Página acerca de Sabrooski POS
+
+# Widget
+MyWidget = Mi widget
+MyWidgetDescription = Descripción de mi widget
+
+# Picker "Toma de orden"
+TomaDeOrden = Toma de orden
+SeleccionaSabor = Elige hasta %s sabores
+ToppingsIncluidos = Toppings incluidos
+SiropeIncluido = Sirope incluido
+Adicionales = Adicionales
+AgregarAlaOrden = Agregar a la orden

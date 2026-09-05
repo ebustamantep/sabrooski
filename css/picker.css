@@ -1,0 +1,282 @@
+/* =====================================================================
+   SabrooskiPOS — CSS del popup "Toma de orden"
+   Paleta de sabrooski-pos-demo.html. Se carga dentro del iframe.
+   ===================================================================== */
+
+.sabrooski-picker {
+	font-family: 'Nunito Sans', 'Helvetica Neue', Arial, sans-serif;
+	background:
+		radial-gradient(circle at 8% 8%, rgba(11,232,245,0.18), transparent 40%),
+		radial-gradient(circle at 95% 90%, rgba(124,58,237,0.14), transparent 45%),
+		#f5f3ff;
+	color: #2e1065;
+	min-height: 100vh;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+.sabrooski-picker * { box-sizing: border-box; }
+
+.picker-root {
+	padding: 16px;
+	max-width: 1100px;
+	margin: 0 auto;
+}
+.pk-loading, .pk-error, .pk-done {
+	text-align: center;
+	padding: 40px 16px;
+	font-weight: 700;
+	color: #8f7fc7;
+}
+.pk-error { color: #e0455a; }
+.pk-done { color: #1b9d6b; }
+
+/* ---------- panel ---------- */
+.pk-panel {
+	background: #fff;
+	border: 2px solid #e4defc;
+	border-radius: 20px;
+	box-shadow: 0 6px 16px rgba(76,29,149,0.14);
+	padding: 18px;
+}
+.pk-panel-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	border-bottom: 2px dashed #e4defc;
+	padding-bottom: 10px;
+	margin-bottom: 6px;
+}
+.pk-panel-head h2 {
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	margin: 0;
+	font-size: 21px;
+	color: #5b21b6;
+	flex: 1;
+}
+.pk-sub { font-size: 13px; color: #8f7fc7; margin-bottom: 12px; }
+.pk-close, .pk-back {
+	border: none;
+	background: transparent;
+	color: #a08fd6;
+	font-size: 13px;
+	font-weight: 700;
+	cursor: pointer;
+	text-decoration: underline;
+	padding: 4px;
+}
+.pk-back { font-size: 18px; text-decoration: none; }
+
+/* ---------- categorías (pestañas horizontales, sin "Todos") ---------- */
+.pk-cats {
+	display: flex;
+	gap: 10px;
+	overflow-x: auto;
+	padding-bottom: 8px;
+	margin-bottom: 16px;
+	-webkit-overflow-scrolling: touch;
+}
+.pk-cat-btn {
+	flex: 0 0 auto;
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	font-size: 15px;
+	font-weight: 700;
+	padding: 10px 18px;
+	border-radius: 999px;
+	border: 2px solid #7c3aed;
+	background: #fff;
+	color: #7c3aed;
+	cursor: pointer;
+	white-space: nowrap;
+	min-height: 44px;
+	transition: transform .08s ease, background .15s ease, color .15s ease;
+}
+.pk-cat-btn:active { transform: scale(0.95); }
+.pk-cat-btn.active { background: #7c3aed; color: #fff; }
+
+/* ---------- grid de productos ---------- */
+.pk-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 14px;
+}
+.pk-card {
+	background: #fff;
+	border: 2px solid #e4defc;
+	border-radius: 18px;
+	padding: 14px;
+	cursor: pointer;
+	text-align: left;
+	box-shadow: 0 3px 10px rgba(76,29,149,0.08);
+	transition: transform .1s ease, border-color .15s ease;
+	display: flex; flex-direction: column; gap: 6px;
+	min-height: 110px;
+	font-family: 'Nunito Sans', sans-serif;
+}
+.pk-card:active { transform: scale(0.97); }
+.pk-card:hover { border-color: #00c6d4; }
+.pk-card .pk-swatch {
+	width: 100%; height: 56px; border-radius: 12px;
+	background: linear-gradient(135deg, #0be8f5, #c4b5fd);
+	display: flex; align-items: center; justify-content: center;
+	font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 22px; color: #2e1065;
+}
+.pk-card h3 {
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	margin: 2px 0 0; font-size: 16px; color: #5b21b6;
+}
+.pk-card .pk-ref { font-size: 11px; color: #a08fd6; }
+.pk-card .pk-price { margin-top: auto; font-weight: 800; font-size: 15px; color: #7c3aed; }
+
+/* ---------- secciones del modal ---------- */
+.pk-section-label {
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	font-size: 14px; color: #7c3aed;
+	margin: 16px 0 8px;
+	display: flex; justify-content: space-between; align-items: center;
+}
+.pk-count { font-size: 11px; color: #a08fd6; font-weight: 400; font-family: 'Nunito Sans', sans-serif; }
+.pk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pk-chip {
+	border: 2px solid #e4defc;
+	background: #fbfaff;
+	border-radius: 999px;
+	padding: 8px 14px;
+	font-size: 13px; font-weight: 700;
+	color: #5b21b6;
+	cursor: pointer;
+	user-select: none;
+	min-height: 40px;
+	font-family: 'Nunito Sans', sans-serif;
+}
+.pk-chip.selected { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.pk-chip.disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ---------- adicionales ---------- */
+.pk-extras { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.pk-extra-row {
+	display: flex; align-items: center; justify-content: space-between; gap: 10px;
+	border: 2px solid #e4defc; background: #fbfaff; border-radius: 12px; padding: 8px 10px;
+}
+.pk-extra-name { font-weight: 700; color: #5b21b6; font-size: 14px; }
+.pk-extra-stepper { display: flex; align-items: center; gap: 8px; }
+.pk-extra-qty { font-family: 'Baloo 2', sans-serif; font-size: 15px; min-width: 16px; text-align: center; }
+
+/* ---------- botones ---------- */
+.pk-btn-square {
+	width: 36px; height: 36px; border-radius: 10px;
+	border: 2px solid #7c3aed; background: #fff; color: #7c3aed;
+	font-size: 18px; font-weight: 800; cursor: pointer; line-height: 1;
+}
+.pk-btn-square.pk-btn-sm { width: 30px; height: 30px; font-size: 14px; border-radius: 8px; }
+.pk-qty-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.pk-qty-val { font-family: 'Baloo 2', sans-serif; font-size: 20px; min-width: 24px; text-align: center; }
+.pk-line-total { margin-left: auto; font-weight: 800; color: #7c3aed; font-size: 16px; }
+.pk-actions { display: flex; gap: 10px; margin-top: 20px; }
+.pk-btn-ghost {
+	flex: 1; padding: 13px; border-radius: 12px; border: 2px solid #e4defc;
+	background: #fff; color: #8f7fc7; font-weight: 700; cursor: pointer;
+	font-family: 'Baloo 2', sans-serif; min-height: 48px;
+}
+.pk-btn-primary {
+	flex: 2; padding: 13px; border-radius: 12px; border: none;
+	background: #7c3aed; color: #fff; font-weight: 700; cursor: pointer;
+	font-family: 'Baloo 2', sans-serif; font-size: 15px; min-height: 48px;
+}
+.pk-btn-primary:active { transform: scale(0.98); }
+
+/* ---------- finalizar orden ---------- */
+.pk-finish {
+	border: none;
+	background: #1b9d6b;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 800;
+	padding: 8px 16px;
+	border-radius: 999px;
+	cursor: pointer;
+	white-space: nowrap;
+	min-height: 40px;
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	transition: background .15s ease, transform .08s ease;
+}
+.pk-finish:hover { background: #168a5d; }
+.pk-finish:active { transform: scale(0.95); }
+
+.pk-btn-finish {
+	flex: 1; padding: 13px; border-radius: 12px;
+	border: 2px solid #1b9d6b;
+	background: #fff; color: #1b9d6b; font-weight: 700; cursor: pointer;
+	font-family: 'Baloo 2', 'Nunito Sans', sans-serif;
+	min-height: 48px;
+}
+.pk-btn-finish:active { transform: scale(0.98); }
+
+/* ---------- toast (aviso breve) ---------- */
+.pk-toast {
+	position: fixed;
+	bottom: 24px;
+	left: 50%;
+	transform: translateX(-50%) translateY(20px);
+	background: #16a34a;
+	color: #fff;
+	font-weight: 700;
+	font-family: 'Nunito Sans', sans-serif;
+	padding: 12px 22px;
+	border-radius: 12px;
+	box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+	opacity: 0;
+	transition: opacity .3s ease, transform .3s ease;
+	z-index: 2000;
+	pointer-events: none;
+}
+.pk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- layout de dos columnas (grid + carrito) ---------- */
+.pk-layout {
+	display: grid;
+	grid-template-columns: 1fr 320px;
+	gap: 16px;
+	align-items: start;
+}
+.pk-main { min-width: 0; }
+
+/* ---------- resumen de la orden (carrito) ---------- */
+.pk-cart {
+	background: #fff;
+	border: 2px solid #e4defc;
+	border-radius: 18px;
+	box-shadow: 0 6px 16px rgba(76,29,149,0.14);
+	display: flex; flex-direction: column;
+	position: sticky; top: 0;
+	max-height: calc(100vh - 60px);
+}
+.pk-cart-inner { display: flex; flex-direction: column; min-height: 0; }
+.pk-cart-head {
+	padding: 14px 16px;
+	border-bottom: 2px dashed #e4defc;
+	display: flex; align-items: center; justify-content: space-between;
+}
+.pk-cart-head h3 { font-family: 'Baloo 2', 'Nunito Sans', sans-serif; margin: 0; font-size: 17px; color: #5b21b6; }
+.pk-cart-clear {
+	border: none; background: none; color: #a08fd6; font-size: 13px;
+	font-weight: 700; cursor: pointer; text-decoration: underline; min-height: 36px; padding: 4px 8px;
+}
+.pk-cart-lines { padding: 8px 16px; overflow-y: auto; flex: 1; min-height: 120px; }
+.pk-empty { text-align: center; padding: 24px 10px; color: #a08fd6; font-size: 13px; line-height: 1.5; }
+.pk-line { border-bottom: 1px solid #e4defc; padding: 12px 0; font-size: 13px; }
+.pk-line-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.pk-line-top strong { font-family: 'Baloo 2', sans-serif; font-size: 14px; color: #5b21b6; }
+.pk-line-detail { color: #6b5b95; margin-top: 3px; line-height: 1.4; font-size: 12px; }
+.pk-line-right { text-align: right; }
+.pk-line-total { font-weight: 800; color: #7c3aed; white-space: nowrap; }
+.pk-line-remove { border: none; background: none; color: #e0455a; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px; }
+.pk-cart-foot { padding: 12px 16px 16px; border-top: 2px dashed #e4defc; }
+.pk-totals-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; color: #6b5b95; }
+.pk-totals-row.pk-grand { font-size: 19px; font-weight: 800; color: #5b21b6; margin-top: 6px; }
+.pk-cart-pay { width: 100%; margin-top: 12px; }
+
+@media (max-width: 860px) {
+	.pk-layout { grid-template-columns: 1fr; }
+	.pk-cart { position: static; max-height: none; }
+}
