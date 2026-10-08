@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.4';
+		$this->version = '1.5';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -179,13 +179,15 @@ class modSabrooskiPOS extends DolibarrModules
 		// con getDolGlobalInt(), así que un valor 0/'' simplemente devuelve listas
 		// vacías y no rompe nada.
 		$this->const = array(
-			1 => array('SABROOSKIPOS_CATEGORY_FLAVORS', 'chaine', '', 'Categoría de sabores de helado', 0),
-			2 => array('SABROOSKIPOS_CATEGORY_TOPPINGS', 'chaine', '', 'Categoría de toppings', 0),
-			3 => array('SABROOSKIPOS_CATEGORY_SYRUPS', 'chaine', '', 'Categoría de siropes', 0),
+			1 => array('SABROOSKIPOS_CATEGORY_FLAVORS', 'chaine', '', 'Categoría de sabores mix (helados servidos)', 0),
+			2 => array('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 'chaine', '', 'Categoría de sabores de bandejas', 0),
+			3 => array('SABROOSKIPOS_PRODUCT_ADICIONAL', 'chaine', '', 'Producto que representa el adicional (precio plano)', 0),
 			// Categorías a OCULTAR en el popup "Toma de orden" (IDs separados por coma).
 			// Ej.: '8' para ocultar la categoría "Venta al mayor". Vacío = mostrar todas.
 			// Se usa para que categorías que no son de toma de pedidos no aparezcan.
 			4 => array('SABROOSKIPOS_HIDDEN_CATEGORIES', 'chaine', '', 'Categorías ocultas en el popup (IDs separados por coma)', 0),
+			// IVA (%) aplicado a los productos cargados desde el catálogo (precios TTC).
+			5 => array('SABROOSKIPOS_TVA_TX', 'chaine', '16', 'IVA (%) aplicado a los productos cargados desde el catálogo', 0),
 		);
 
 		// Some keys to add into the overwriting translation tables
@@ -466,17 +468,21 @@ class modSabrooskiPOS extends DolibarrModules
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
 		// Máximo de sabores que se pueden elegir en este producto base
-		$extrafields->addExtraField('max_sabores', 'Máx. sabores', 'int', 100, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_sabores', 'Máx. sabores', 'int', 100, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Máximo de toppings incluidos en el precio (los que excedan se cobran aparte)
-		$extrafields->addExtraField('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Máximo de sirope que se puede elegir en este producto base
-		$extrafields->addExtraField('max_sirope', 'Máx. sirope', 'int', 102, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result0=$extrafields->addExtraField('sabrooskipos_separator1', "Separator 1", 'separator', 1,  0, 'thirdparty',   0, 0, '', array('options'=>array(1=>1)), 1, '', 1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result1=$extrafields->addExtraField('sabrooskipos_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', -1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result2=$extrafields->addExtraField('sabrooskipos_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', -1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result3=$extrafields->addExtraField('sabrooskipos_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result4=$extrafields->addExtraField('sabrooskipos_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
-		//$result5=$extrafields->addExtraField('sabrooskipos_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_sirope', 'Máx. sirope', 'int', 102, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		// Grupo de sabores que ofrece el modal: mix (servidos), bandejas (empaquetado) o ninguno.
+		$extrafields->addExtraField('grupo_sabores', 'Grupo de sabores', 'select', 103, 0, 'product', 0, 0, '', array('options' => array('' => 'Ninguno', 'mix' => 'Mix (servidos)', 'bandejas' => 'Bandejas')), 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		// Gramos de la porción principal (informativo: se muestra en la descripción del ticket).
+		$extrafields->addExtraField('gramos_porcion', 'Gramos por porción', 'varchar', 104, 16, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result0=$extrafields->addExtraField('sabrooskipos_separator1', "Separator 1", 'separator', 1,  0, 'thirdparty',   0, 0, '', array('options'=>array(1=>1)), 1, '', 1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result1=$extrafields->addExtraField('sabrooskipos_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result2=$extrafields->addExtraField('sabrooskipos_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result3=$extrafields->addExtraField('sabrooskipos_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result4=$extrafields->addExtraField('sabrooskipos_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		//$result5=$extrafields->addExtraField('sabrooskipos_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 
 		// Permissions
 		$this->remove($options);

@@ -143,12 +143,48 @@ function pickerSimpleProducts($db, $catid)
 	return $res;
 }
 
+/**
+ * Producto configurado como "Adicional" (precio plano) para el terminal.
+ *
+ * @param DoliDB $db
+ * @param int    $term  Número de terminal
+ * @return array|null   {id, label, price_ttc, price_formated} o null si no está configurado
+ */
+function pickerGetAdicional($db, $term)
+{
+	$pid = (int) sabrooskiposGetConst('SABROOSKIPOS_PRODUCT_ADICIONAL', $term);
+	if ($pid <= 0) {
+		return null;
+	}
+
+	$prod = new Product($db);
+	if ($prod->fetch($pid) <= 0) {
+		return null;
+	}
+
+	$sociddefault = getDolGlobalInt('CASHDESK_ID_THIRDPARTY'.$term);
+	$customer = new Societe($db);
+	if ($sociddefault > 0) {
+		$customer->fetch($sociddefault);
+	}
+
+	$dataprice = @$prod->getSellPrice($GLOBALS['mysoc'], $customer, 0);
+	$price_ttc = empty($dataprice['pu_ttc']) ? 0 : (float) $dataprice['pu_ttc'];
+
+	return array(
+		'id' => (int) $prod->id,
+		'label' => $prod->label,
+		'price_ttc' => $price_ttc,
+		'price_formated' => price($price_ttc, 1, $GLOBALS['langs'], 1, -1, -1, $GLOBALS['conf']->currency),
+	);
+}
+
 if ($action == 'getData') {
 	echo json_encode(array(
 		'categories' => pickerCategories($db),
 		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
-		'toppings' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term)),
-		'syrups' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term)),
+		'flavors_bandejas' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term)),
+		'adicional' => pickerGetAdicional($db, $term),
 	));
 	exit;
 }
@@ -226,11 +262,11 @@ if ($action == 'getProduct') {
 	$dataprice = @$prod->getSellPrice($GLOBALS['mysoc'], $customer, 0);
 	$price_ttc = empty($dataprice['pu_ttc']) ? 0 : (float) $dataprice['pu_ttc'];
 
-	// Defaults defensivos: si el producto no tiene el extrafield, se asume que
-	// admite 1 sabor y 0 toppings/sirope. Nunca un valor que rompa el modal.
+	// Defaults defensivos: si el producto no tiene el extrafield, se asume 1 sabor.
+	// Nunca un valor que rompa el modal.
 	$maxSabores = isset($prod->array_options['options_max_sabores']) ? (int) $prod->array_options['options_max_sabores'] : 1;
-	$maxToppings = isset($prod->array_options['options_max_toppings_incluidos']) ? (int) $prod->array_options['options_max_toppings_incluidos'] : 0;
-	$maxSirope = isset($prod->array_options['options_max_sirope']) ? (int) $prod->array_options['options_max_sirope'] : 0;
+	$grupoSabores = isset($prod->array_options['options_grupo_sabores']) ? (string) $prod->array_options['options_grupo_sabores'] : '';
+	$gramosPorcion = isset($prod->array_options['options_gramos_porcion']) ? (string) $prod->array_options['options_gramos_porcion'] : '';
 
 	echo json_encode(array(
 		'product' => array(
@@ -241,12 +277,12 @@ if ($action == 'getProduct') {
 			'price_ttc' => $price_ttc,
 			'price_formated' => price($price_ttc, 1, $GLOBALS['langs'], 1, -1, -1, $GLOBALS['conf']->currency),
 			'max_sabores' => $maxSabores,
-			'max_toppings_incluidos' => $maxToppings,
-			'max_sirope' => $maxSirope,
+			'grupo_sabores' => $grupoSabores,
+			'gramos_porcion' => $gramosPorcion,
 		),
 		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
-		'toppings' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term)),
-		'syrups' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term)),
+		'flavors_bandejas' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term)),
+		'adicional' => pickerGetAdicional($db, $term),
 	));
 	exit;
 }

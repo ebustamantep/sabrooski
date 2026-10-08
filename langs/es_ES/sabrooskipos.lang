@@ -14,6 +14,7 @@ MyPageName = Mi página
 # Admin
 SabrooskiPOSSetup = Configuración Sabrooski POS
 Settings = Ajustes
+SabrooskiPOSCargarCatalogo = Cargar catálogo
 SabrooskiPOSSetupPage = Página de configuración de Sabrooski POS
 NewSection = Nueva sección
 
@@ -23,13 +24,17 @@ TakeposHideProductPrices = Ocultar precios de productos en el grid
 TakeposHideCategoryImages = Ocultar imágenes de categorías
 TakeposShowCategoryDescription = Mostrar descripción de categorías
 
+# IVA aplicado a los productos cargados desde el catálogo
+SabrooskiTvaTx = IVA del catálogo (%)
+SabrooskiTvaTxDesc = Tipo de IVA aplicado a los productos cargados desde sabrooski_productos.json. Los precios del JSON son el precio final (TTC). Por defecto 16%.
+
 # Sabrooski: categorías del modal de personalización
-SabrooskiCategoryFlavors = Categoría de sabores
-SabrooskiCategoryFlavorsDesc = Categoría de Dolibarr que agrupa los productos de sabor de helado
-SabrooskiCategoryToppings = Categoría de toppings
-SabrooskiCategoryToppingsDesc = Categoría de Dolibarr que agrupa los productos de topping
-SabrooskiCategorySyrups = Categoría de siropes
-SabrooskiCategorySyrupsDesc = Categoría de Dolibarr que agrupa los productos de sirope
+SabrooskiCategoryFlavors = Categoría de sabores mix
+SabrooskiCategoryFlavorsDesc = Categoría de Dolibarr que agrupa los sabores de helados servidos (mix)
+SabrooskiCategoryFlavorsBandejas = Categoría de sabores de bandejas
+SabrooskiCategoryFlavorsBandejasDesc = Categoría de Dolibarr que agrupa los sabores de las bandejas (empaquetado)
+SabrooskiProductAdicional = Producto Adicional
+SabrooskiProductAdicionalDesc = Producto que representa el adicional a precio plano (se suma como una línea aparte)
 
 # Categorías ocultas en el popup "Toma de orden"
 SabrooskiHiddenCategories = Categorías ocultas en el popup
@@ -51,7 +56,7 @@ MyWidgetDescription = Descripción de mi widget
 # Picker "Toma de orden"
 TomaDeOrden = Toma de orden
 SeleccionaSabor = Elige hasta %s sabores
-ToppingsIncluidos = Toppings incluidos
-SiropeIncluido = Sirope incluido
-Adicionales = Adicionales
+SaboresMix = Sabores
+SaboresBandejas = Sabores
+Adicional = Adicional
 AgregarAlaOrden = Agregar a la orden

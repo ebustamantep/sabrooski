@@ -91,6 +91,7 @@ if ($action == 'set' && $user->admin) {
 			'TAKEPOS_ROOT_CATEGORY_ID' => GETPOST('TAKEPOS_ROOT_CATEGORY_ID', 'alpha'),
 			'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
 			'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
+			'SABROOSKIPOS_TVA_TX' => GETPOST('SABROOSKIPOS_TVA_TX', 'alpha'),
 		);
 		foreach ($consts as $key => $val) {
 			$res = dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
@@ -118,8 +119,8 @@ if ($action == 'set' && $user->admin) {
 		// Pestaña de un terminal: SOLO la parte Sabrooski (no se repite lo global).
 		$conststerm = array(
 			'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
-			'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
-			'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 'alpha'),
+			'SABROOSKIPOS_PRODUCT_ADICIONAL' => GETPOST('SABROOSKIPOS_PRODUCT_ADICIONAL', 'alpha'),
 			'SABROOSKIPOS_HIDDEN_CATEGORIES' => GETPOST('SABROOSKIPOS_HIDDEN_CATEGORIES', 'alpha'),
 		);
 		foreach ($conststerm as $key => $val) {
@@ -249,6 +250,13 @@ if ($terminal == 0) {
 	print ajax_constantonoff("TAKEPOS_SHOW_CATEGORY_DESCRIPTION", array(), $conf->entity, 0, 0, 1, 0);
 	print '</td></tr>';
 
+	// IVA aplicado a los productos del catálogo (los precios son TTC)
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'vat', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiTvaTx"), $langs->trans("SabrooskiTvaTxDesc"));
+	print '</td><td>';
+	print '<input type="text" name="SABROOSKIPOS_TVA_TX" value="'.dol_escape_htmltag(getDolGlobalString('SABROOSKIPOS_TVA_TX', '16')).'" size="5"> %';
+	print '</td></tr>';
+
 	print '<tr><td colspan="2" class="opacitymedium">'.$langs->trans("SabrooskiNoteGlobalConfig").'</td></tr>';
 } else {
 	// ---- PESTAÑA DE TERMINAL: SOLO la sección Sabrooski (sabores/toppings/siropes/ocultas) ----
@@ -262,17 +270,16 @@ if ($terminal == 0) {
 	print '</td></tr>';
 
 	print '<tr class="oddeven"><td>';
-	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryToppings"), $langs->trans("SabrooskiCategoryToppingsDesc"));
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryFlavorsBandejas"), $langs->trans("SabrooskiCategoryFlavorsBandejasDesc"));
 	print '</td><td>';
-	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-	print ajax_combobox('SABROOSKIPOS_CATEGORY_TOPPINGS');
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term), 'SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS');
 	print '</td></tr>';
 
 	print '<tr class="oddeven"><td>';
-	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategorySyrups"), $langs->trans("SabrooskiCategorySyrupsDesc"));
+	print $form->textwithpicto($langs->trans("SabrooskiProductAdicional"), $langs->trans("SabrooskiProductAdicionalDesc"));
 	print '</td><td>';
-	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
-	print ajax_combobox('SABROOSKIPOS_CATEGORY_SYRUPS');
+	print $form->select_produits((int) sabrooskiposGetConst('SABROOSKIPOS_PRODUCT_ADICIONAL', $term), 'SABROOSKIPOS_PRODUCT_ADICIONAL', '', 0, 0, 1, 2, '', 0, array(), 0, '1', 0, 'maxwidth500 widthcentpercentminusx');
 	print '</td></tr>';
 
 	print '<tr class="oddeven"><td>';

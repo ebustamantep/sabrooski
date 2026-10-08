@@ -5,12 +5,14 @@
    Flujo:
    1. Carga categorías reales de la BD (picker/api.php?action=getData).
    2. Cada pestaña = una categoría real; al tocarla lista sus productos.
-   3. Al tocar un producto abre el modal de sabores/toppings/siropes.
+   3. Al tocar un producto abre el modal: sabores (mix o bandejas, según el
+      grupo del producto) + stepper "Adicional" a precio plano.
    4. Al confirmar, agrega la línea al ticket nativo de TakePOS
       (invoice.php addline / addnote) y cierra el popup.
 
-   Usa el MISMO origen de datos que el grid nativo (método getObjectsInCateg),
-   con las constantes reales de categorías (sabores=5, toppings=6, siropes=7).
+   Usa el MISMO origen de datos que el grid nativo (método getObjectsInCateg).
+   Las listas de sabores y el producto Adicional se configuran por terminal en
+   el Setup del módulo (constantes SABROOSKIPOS_*).
    ===================================================================== */
 (function () {
 	'use strict';
@@ -18,7 +20,7 @@
 	var BASE = '', API = '', PLACE = '0', invoiceid = '', TOKEN = '', P_socid = '';
 	var products = [];        // productos de la categoría activa
 	var current = null;       // estado del modal (producto + selección)
-	var flavors = [], toppings = [], syrups = [];
+	var flavors = [];
 	var catsCache = [];       // categorías ya cargadas (para volver a la rejilla sin re-fetch)
 	var activeCatId = null;   // categoría activa al volver del modal
 
@@ -53,7 +55,8 @@
 	function fmtUsd(n) { return '$' + Number(n || 0).toFixed(2); }
 
 	/* ---------- cargar datos ----------
-	   Las categorías y las listas de sabores/toppings/siropes vienen de picker/api.php.
+	   Las categorías, las listas de sabores (mix/bandejas) y el Adicional vienen
+	   de picker/api.php.
 	   Los PRODUCTOS se piden al endpoint NATIVO del TakePOS (takepos/ajax/ajax.php
 	   ?action=getProducts), el MISMO que pinta la rejilla nativa. Así mostramos
 	   exactamente lo que ya se ve en el POS nativo. */
@@ -71,8 +74,6 @@
 		fetchJSON(API + '?action=getData&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE))
 			.then(function (data) {
 				flavors = data.flavors || [];
-				toppings = data.toppings || [];
-				syrups = data.syrups || [];
 
 				var cats = data.categories || [];
 				if (!cats.length) {
@@ -265,24 +266,30 @@
 				current = {
 					product: data.product,
 					flavors: data.flavors || [],
-					toppings: data.toppings || [],
-					syrups: data.syrups || [],
-					selected: { flavors: [], toppings: [], syrups: [] },
+					flavorsBandejas: data.flavors_bandejas || [],
+					adicional: data.adicional || null,
+					selected: { flavors: [] },
 					extras: {},   // idproduct -> qty adicional
 					qty: 1
 				};
-				// Defaults defensivos (si el producto no trae extrafields de límites):
-				// al menos se admite elegir 1 sabor, y si no hay categorías de
-				// toppings/siropes, no se muestra la sección.
+				// Default defensivo: si el producto no trae extrafield, admite 1 sabor.
 				var p = current.product;
 				if (typeof p.max_sabores === 'undefined' || p.max_sabores === null) { p.max_sabores = 1; }
-				if (typeof p.max_toppings_incluidos === 'undefined' || p.max_toppings_incluidos === null) { p.max_toppings_incluidos = 0; }
-				if (typeof p.max_sirope === 'undefined' || p.max_sirope === null) { p.max_sirope = 0; }
+				current.grupo = (p.grupo_sabores || '').toString().trim();
 				renderModal();
 			})
 			.catch(function (err) {
 				root.innerHTML = '<div class="pk-error">No se pudo cargar el producto. ' + esc(err && err.message ? err.message : '') + '</div>';
 			});
+	}
+
+	// Lista de sabores que aplica al producto según su grupo: mix (servidos) o
+	// bandejas (empaquetado). Sin grupo configurado => sin selección de sabor.
+	function activeFlavors() {
+		if (!current) { return []; }
+		if (current.grupo === 'bandejas') { return current.flavorsBandejas || []; }
+		if (current.grupo === 'mix') { return current.flavors || []; }
+		return [];
 	}
 
 	function renderModal() {
@@ -292,25 +299,17 @@
 		function chipRow(options, selectedArr, max, groupKey) {
 			return options.map(function (o) {
 				var sel = selectedArr.indexOf(o.label) !== -1;
-				var blocked = !sel && max > 0 && selectedArr.length >= max;
+				var blocked = !sel && max > 1 && selectedArr.length >= max;
 				var cls = 'pk-chip' + (sel ? ' selected' : '') + ((max === 0 || blocked) ? ' disabled' : '');
 				return '<button type="button" class="' + cls + '" data-group="' + groupKey + '" data-val="' + esc(o.label) + '">' + esc(o.label) + '</button>';
 			}).join('');
 		}
 
-		var flavorsSection = p.max_sabores > 0
-			? '<div class="pk-section-label">Sabores <span class="pk-count">elije hasta ' + p.max_sabores + '</span></div>' +
-				'<div class="pk-chips" id="flavorChips">' + chipRow(current.flavors, current.selected.flavors, p.max_sabores, 'flavor') + '</div>'
-			: '';
-
-		var toppingsSection = (p.max_toppings_incluidos > 0 && current.toppings.length)
-			? '<div class="pk-section-label">Toppings incluidos <span class="pk-count">elije hasta ' + p.max_toppings_incluidos + '</span></div>' +
-				'<div class="pk-chips" id="toppingChips">' + chipRow(current.toppings, current.selected.toppings, p.max_toppings_incluidos, 'topping') + '</div>'
-			: '';
-
-		var syrupsSection = (p.max_sirope > 0 && current.syrups.length)
-			? '<div class="pk-section-label">Sirope incluido <span class="pk-count">elije hasta ' + p.max_sirope + '</span></div>' +
-				'<div class="pk-chips" id="syrupChips">' + chipRow(current.syrups, current.selected.syrups, p.max_sirope, 'syrup') + '</div>'
+		var flavorOptions = activeFlavors();
+		var maxFlavors = (parseInt(p.max_sabores, 10) > 0 ? parseInt(p.max_sabores, 10) : 1);
+		var flavorsSection = flavorOptions.length
+			? '<div class="pk-section-label">Sabores <span class="pk-count">elije hasta ' + maxFlavors + '</span></div>' +
+				'<div class="pk-chips" id="flavorChips">' + chipRow(flavorOptions, current.selected.flavors, maxFlavors, 'flavor') + '</div>'
 			: '';
 
 		var extrasSection = renderExtras();
@@ -321,7 +320,7 @@
 			'<h2>' + esc(p.label) + '</h2>' +
 			'<button type="button" class="pk-close" data-close>Cerrar</button></div>' +
 			'<div class="pk-sub">' + (p.description ? esc(p.description) + ' · ' : '') + esc(p.price_formated || '') + '</div>' +
-			flavorsSection + toppingsSection + syrupsSection + extrasSection +
+			flavorsSection + extrasSection +
 			'<div class="pk-qty-row">' +
 				'<button class="pk-btn-square" id="qtyMinus">−</button>' +
 				'<span class="pk-qty-val" id="qtyVal">' + current.qty + '</span>' +
@@ -338,9 +337,7 @@
 		$$('.pk-chip', root).forEach(function (chip) {
 			chip.addEventListener('click', function () {
 				var group = chip.dataset.group, val = chip.dataset.val;
-				if (group === 'flavor') { toggleChoice(current.selected.flavors, val, p.max_sabores); }
-				if (group === 'topping') { toggleChoice(current.selected.toppings, val, p.max_toppings_incluidos); }
-				if (group === 'syrup') { toggleChoice(current.selected.syrups, val, p.max_sirope); }
+				if (group === 'flavor') { toggleChoice(current.selected.flavors, val, maxFlavors); }
 				renderModal();
 			});
 		});
@@ -370,26 +367,25 @@
 		if (max > 0 && arr.length < max) { arr.push(val); }
 	}
 
+	// Un único stepper "Adicional" (producto a precio plano). Cada unidad se agrega
+	// como una línea de venta propia del producto Adicional configurado.
 	function renderExtras() {
-		if (!current) { return ''; }
-		var options = current.toppings.concat(current.syrups);
-		if (!options.length) { return ''; }
+		if (!current || !current.adicional || !current.adicional.id) { return ''; }
+		var a = current.adicional;
+		var qty = current.extras[a.id] || 0;
+		var priceTxt = a.price_formated ? ' <span class="pk-count">+' + esc(a.price_formated) + '</span>' : '';
 
-		var html = '<div class="pk-section-label">Adicionales <span class="pk-count">se cobran aparte, sin límite</span></div>' +
-			'<div class="pk-extras" id="extrasList">';
-		options.forEach(function (o) {
-			var qty = current.extras[o.id] || 0;
-			html += '<div class="pk-extra-row">' +
-				'<span class="pk-extra-name">' + esc(o.label) + '</span>' +
-				'<div class="pk-extra-stepper">' +
-					'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-minus="' + o.id + '">−</button>' +
-					'<span class="pk-extra-qty">' + qty + '</span>' +
-					'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-plus="' + o.id + '">+</button>' +
+		return '<div class="pk-section-label">Adicional' + priceTxt + '</div>' +
+			'<div class="pk-extras" id="extrasList">' +
+				'<div class="pk-extra-row">' +
+					'<span class="pk-extra-name">' + esc(a.label) + '</span>' +
+					'<div class="pk-extra-stepper">' +
+						'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-minus="' + a.id + '">−</button>' +
+						'<span class="pk-extra-qty">' + qty + '</span>' +
+						'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-plus="' + a.id + '">+</button>' +
+					'</div>' +
 				'</div>' +
 			'</div>';
-		});
-		html += '</div>';
-		return html;
 	}
 
 	function bindExtras() {
@@ -414,8 +410,8 @@
 	function construirDescripcion() {
 		var partes = [];
 		if (current.selected.flavors.length) partes.push('Sabor: ' + current.selected.flavors.join(', '));
-		if (current.selected.toppings.length) partes.push('Topping: ' + current.selected.toppings.join(', '));
-		if (current.selected.syrups.length) partes.push('Sirope: ' + current.selected.syrups.join(', '));
+		var g = (current.product.gramos_porcion || '').toString().trim();
+		if (g !== '') partes.push(/g\s*$/i.test(g) ? g : g + ' g');
 		return partes.join(' · ');
 	}
 
@@ -458,7 +454,7 @@
 
 	function confirmAddProduct(shouldClose) {
 		var p = current.product;
-		if (current.selected.flavors.length === 0) {
+		if (activeFlavors().length > 0 && current.selected.flavors.length === 0) {
 			alert('Selecciona al menos un sabor.');
 			return;
 		}

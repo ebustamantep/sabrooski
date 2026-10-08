@@ -185,3 +185,57 @@ que al finalizar el ticket nativo ya tiene todo armado.
 - Estructura/diseño: `takepos/sabrooski-pos-estructura.md`
 - Maqueta visual: `takepos/sabrooski-pos-demo.html`
 - Backup del POS nativo: `C:\laragon\www\sabrooski_backup\takepos_20260829\`
+
+---
+
+## 9. Ajuste al menú real (v1.5)
+
+El menú definitivo de Sabrooski queda documentado en `sabrooski_productos.json`
+(derivado de `productos sabrooski.xlsx`). El módulo se alineó a él:
+
+- **Categorías de venta:** Servido en camión, Especial domo, Empaquetado y Adicional
+  (esta última oculta como pestaña vía `SABROOSKIPOS_HIDDEN_CATEGORIES`).
+- **Sabores:** dos listas — `mix` (6, servidos/especiales) y `bandejas` (14, empaquetado) —
+  elegidas según el extrafield `grupo_sabores` del producto.
+- **Adicional:** un único producto a precio plano ($0.25) con stepper en el modal; cada
+  unidad se agrega como una línea de venta propia.
+- **Gramos por porción:** extrafield `gramos_porcion`, informativo en la descripción/ticket.
+- **Toppings/sirope:** ya no son seleccionables (ingredientes fijos de la receta).
+
+Piezas modificadas:
+- `core/modules/modSabrooskiPOS.class.php` — v1.5; extrafields `grupo_sabores` y
+  `gramos_porcion`; constantes `SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS` y
+  `SABROOSKIPOS_PRODUCT_ADICIONAL`.
+- `admin/setup.php` — configuración por terminal de sabores mix/bandejas + Producto Adicional.
+- `admin/cargar_catalogo.php` — carga idempotente del catálogo desde el JSON (nueva).
+- `picker/api.php` y `js/picker.js` — modal según grupo de sabores + stepper Adicional.
+- `lib/sabrooskipos.lib.php` — pestaña "Cargar catálogo" en el Setup.
+
+---
+
+## 10. Continuación: carga del catálogo + correcciones (2026-10-08)
+
+Se ejecutó la carga real del catálogo y se corrigieron bugs encontrados:
+
+- **IVA 16%:** `SABROOSKIPOS_TVA_TX` (nueva constante, default `16`). Los `precio_usd`
+  del JSON se guardan como **precio final TTC** con IVA 16% (verificado: `price_ttc`
+  = precio del JSON, `tva_tx` = 16). Configurable en **Setup → (pestaña global)**.
+- **Carga ejecutada** (idempotente): categorías nuevas `8 Servido en camión`,
+  `9 Especial domo`, `10 Empaquetado`, `11 Adicional`, `12 Sabores mix`,
+  `13 Sabores bandejas`; **36 productos** (`16 PV-*` + `6 SM-*` + `14 SB-*`).
+- **Bug corregido — definiciones de extrafields:** las llamadas a `addExtraField()`
+  estaban desalineadas (faltaba el argumento `$entity=''`), por lo que
+  `grupo_sabores` y `gramos_porcion` creaban la columna pero **no** la definición en
+  `llx_extrafields` (y `insertExtraFields()` los descartaba). Corregido en
+  `lib/sabrooskipos.lib.php` y en `core/modules/modSabrooskiPOS.class.php`.
+- **`EnsureProduct` ahora actualiza extrafields de productos existentes** al re-ejecutar,
+  para que la carga converja (antes solo creaba y saltaba los existentes).
+- **Runner CLI nuevo:** `test/cargar_catalogo_cli.php` (usa la MISMA función
+  `sabrooskiposLoadCatalogo()` que la página admin). Permite cargar/verificar sin navegador:
+  `php custom/sabrooskipos/test/cargar_catalogo_cli.php`.
+- **Constantes fijadas:** `SABROOSKIPOS_CATEGORY_FLAVORS=12`,
+  `SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS=13`, `SABROOSKIPOS_PRODUCT_ADICIONAL=59`,
+  `SABROOSKIPOS_HIDDEN_CATEGORIES=11,2,3,4` (oculta Adicional + legacy Conos/Vasos/Sundaes).
+
+**Pendiente:** prueba funcional en TakePOS (popup) y decisión sobre las categorías legacy
+2/3/4, que siguen visibles en el **grid nativo** del TakePOS (el popup ya las oculta).

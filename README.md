@@ -2,7 +2,7 @@
 
 Módulo custom para **Dolibarr** que añade un botón **"Toma de orden"** en la barra de
 acciones del **TakePOS**. Al tocarlo abre un popup táctil donde el operador elige
-**categoría → producto → sabor / topping / sirope** (con límites por producto), ve un
+**categoría → producto → sabor (mix o bandejas) + adicional**, ve un
 **resumen de la orden** ("Orden actual") y al terminar toca **"Finalizar orden"**, que
 lo devuelve al ticket nativo de TakePOS para **cobrar e imprimir**.
 
@@ -41,7 +41,8 @@ Copia la carpeta completa `sabrooskipos/` dentro del directorio `custom/` de Dol
 2. Menú **Inicio → Configuración → Módulos**.
 3. Busca **"Sabrooski POS"** y actívalo.
 4. Al activar, Dolibarr crea automáticamente:
-   - Los **extrafields** de producto: `max_sabores`, `max_toppings_incluidos`, `max_sirope`.
+   - Los **extrafields** de producto: `max_sabores`, `max_toppings_incluidos`,
+     `max_sirope`, `grupo_sabores`, `gramos_porcion`.
    - El permiso `Sabrooski POS / use`.
    - La constante de hooks `MAIN_MODULE_SABROOSKIPOS_HOOKS = ["takeposfrontend"]`.
 
@@ -61,11 +62,16 @@ Configúralos en la página de ajustes del módulo:
 
 **Inicio → Configuración → Módulos → Sabrooski POS → Configurar** (Setup).
 
-Ahí elegí:
+En la pestaña de cada terminal elegí:
 
-- **Categoría de sabores** (`SABROOSKIPOS_CATEGORY_FLAVORS`)
-- **Categoría de toppings** (`SABROOSKIPOS_CATEGORY_TOPPINGS`)
-- **Categoría de siropes** (`SABROOSKIPOS_CATEGORY_SYRUPS`)
+- **Categoría de sabores mix** (`SABROOSKIPOS_CATEGORY_FLAVORS`)
+- **Categoría de sabores de bandejas** (`SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS`)
+- **Producto Adicional** (`SABROOSKIPOS_PRODUCT_ADICIONAL`)
+- **Categorías ocultas** (`SABROOSKIPOS_HIDDEN_CATEGORIES`, ej. la categoría "Adicional")
+
+En la pestaña global (**Configuración**) podés fijar el **IVA del catálogo**
+(`SABROOSKIPOS_TVA_TX`, por defecto `16`). Los precios del JSON se tratan como precio
+final **TTC** con ese IVA.
 
 También verifica que **`TAKEPOS_ROOT_CATEGORY_ID`** (categoría raíz del TakePOS) esté
 bien configurada, porque el popup lista las categorías hijas de esa raíz.
@@ -85,19 +91,29 @@ El módulo **no trae datos de ejemplo**: lee la BD real de Dolibarr. Para que la
 
 - La **categoría raíz** del TakePOS configurada con sus categorías hijas (pestañas del popup).
 - Los **productos base** (con `tosell = 1`) en esas categorías.
-- Los productos de **sabor / topping / sirope** en sus respectivas categorías (las 3 de arriba).
-- Los **extrafields** `max_sabores`, `max_toppings_incluidos`, `max_sirope` definidos
-  en los productos base (se crean al activar el módulo).
+- Los productos de **sabor** (mix y bandejas) en sus respectivas categorías.
+- El **producto Adicional** (a precio plano) que se suma como línea aparte.
+- Los **extrafields** de producto (se crean al activar el módulo).
+
+> **Carga automática:** el módulo incluye la página **Sabrooski POS → Cargar catálogo**
+> (`admin/cargar_catalogo.php`). Crea categorías, productos, precios y extrafields a
+> partir de `sabrooski_productos.json`, de forma idempotente. Ejecútala como superadmin
+> **antes** de revisar el Setup (la página rellena las constantes vacías).
+>
+> También hay un runner CLI equivalente (misma función, sin navegador):
+> `php custom/sabrooskipos/test/cargar_catalogo_cli.php`.
 
 Ejemplo de valores en los productos base:
 
 | Extrafield | Descripción | Valor típico |
 |---|---|---|
-| `max_sabores` | Cuántos sabores se pueden elegir | `2` |
-| `max_toppings_incluidos` | Toppings incluidos en el precio (los demás se cobran aparte) | `2` |
-| `max_sirope` | Siropes incluidos | `1` |
+| `max_sabores` | Cuántos sabores se pueden elegir | `1` |
+| `grupo_sabores` | Lista de sabores: `mix` (servidos), `bandejas` (empaquetado) o vacío | `mix` |
+| `gramos_porcion` | Gramos de la porción (se muestran en la descripción del ticket) | `172` |
+| `max_toppings_incluidos` | Sin uso en el menú real (receta fija) | `0` |
+| `max_sirope` | Sin uso en el menú real (receta fija) | `0` |
 
-Si un producto no tiene estos valores, el módulo asume `1 sabor / 0 toppings / 0 sirope`.
+Si un producto no tiene estos valores, el módulo asume `1 sabor` y sin lista de sabores.
 
 ---
 
@@ -105,9 +121,10 @@ Si un producto no tiene estos valores, el módulo asume `1 sabor / 0 toppings / 
 
 1. En **TakePOS**, el botón **"Toma de orden"** aparece junto a Cliente/Descuento/etc.
 2. Se abre el popup con las **categorías** (pestañas) y el **grid de productos**.
-3. Al tocar un producto → **modal** con sabores, toppings, sirope, cantidad y adicionales.
+3. Al tocar un producto → **modal** con sabores (mix o bandejas), el **Adicional**
+   (a precio plano) y la cantidad.
 4. **"Agregar a la orden"** añade el producto (con su detalle como descripción de la
-   línea: `Sabor: X · Topping: Y · Sirope: Z`) y vuelve a la rejilla para seguir.
+   línea: `Sabor: X · 172 g`) más una línea por cada Adicional, y vuelve a la rejilla.
 5. A la derecha, el panel **"Orden actual"** muestra el resumen: líneas, artículos,
    total, **Quitar** por línea y **Vaciar**.
 6. **"Finalizar orden"** cierra el popup y recarga el ticket de TakePOS, listo para
@@ -129,6 +146,7 @@ custom/sabrooskipos/
 ├── css/picker.css                           ← estilos del popup
 ├── langs/es_ES/sabrooskipos.lang            ← traducciones ES
 ├── admin/setup.php                          ← configuración de categorías
+├── admin/cargar_catalogo.php                ← carga del catálogo real desde el JSON
 └── README.md
 ```
 
@@ -153,6 +171,7 @@ custom/sabrooskipos/
 |---|---|---|
 | No aparece el botón "Toma de orden" | Falta la constante de hooks | Desactivar/reactivar el módulo o insertar `MAIN_MODULE_SABROOSKIPOS_HOOKS` en BD |
 | El popup sale vacío / sin pestañas | `TAKEPOS_ROOT_CATEGORY_ID` mal configurada | Configurar la categoría raíz en Setup |
-| No se ven sabores/toppings/siropes | Categorías `SABROOSKIPOS_CATEGORY_*` vacías o sin productos | Configurar las 3 categorías en Setup |
+| No se ven sabores | Categorías `SABROOSKIPOS_CATEGORY_FLAVORS*` vacías o con productos sin `tosell` | Configurar las categorías de sabores en Setup |
+| No aparece el stepper Adicional | `SABROOSKIPOS_PRODUCT_ADICIONAL` vacío | Configurar el Producto Adicional en Setup |
 | El popup muestra una versión vieja | Caché del navegador | Recargar con `Ctrl+F5` (el módulo ya fuerza `?v=...`) |
 | Error TCPDF al cobrar | `$dolibarr_main_data_root` relativo en `conf.php` | Poner la ruta absoluta (o vacía) en `conf/conf.php` |

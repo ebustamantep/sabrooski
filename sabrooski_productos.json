@@ -1,0 +1,861 @@
+{
+  "negocio": "Sabrooski",
+  "moneda": "USD",
+  "notas": [
+    "Moneda asumida USD (no indicada en el original).",
+    "Insumos con el mismo grupo_alternativo son excluyentes: se usa uno (Pirulín u Oreo)."
+  ],
+  "insumos": [
+    {
+      "codigo": "INS-001",
+      "nombre": "Mix de helado (base)",
+      "unidad": "g",
+      "tipo": "Materia prima"
+    },
+    {
+      "codigo": "INS-002",
+      "nombre": "Sirope",
+      "unidad": "g",
+      "tipo": "Materia prima"
+    },
+    {
+      "codigo": "INS-003",
+      "nombre": "Topping",
+      "unidad": "g",
+      "tipo": "Materia prima"
+    },
+    {
+      "codigo": "INS-010",
+      "nombre": "Cono de barquilla",
+      "unidad": "ud",
+      "tipo": "Contenedor comestible"
+    },
+    {
+      "codigo": "INS-011",
+      "nombre": "Cono maxicono",
+      "unidad": "ud",
+      "tipo": "Contenedor comestible"
+    },
+    {
+      "codigo": "INS-012",
+      "nombre": "Cono barquillón",
+      "unidad": "ud",
+      "tipo": "Contenedor comestible"
+    },
+    {
+      "codigo": "INS-013",
+      "nombre": "Cesta (galleta)",
+      "unidad": "ud",
+      "tipo": "Contenedor comestible"
+    },
+    {
+      "codigo": "INS-020",
+      "nombre": "Vaso sundae",
+      "unidad": "ud",
+      "tipo": "Empaque"
+    },
+    {
+      "codigo": "INS-021",
+      "nombre": "Vaso domo 8 oz",
+      "unidad": "ud",
+      "tipo": "Empaque"
+    },
+    {
+      "codigo": "INS-022",
+      "nombre": "Tinita",
+      "unidad": "ud",
+      "tipo": "Empaque"
+    },
+    {
+      "codigo": "INS-030",
+      "nombre": "Cucharilla",
+      "unidad": "ud",
+      "tipo": "Desechable"
+    },
+    {
+      "codigo": "INS-031",
+      "nombre": "Servilleta",
+      "unidad": "ud",
+      "tipo": "Desechable"
+    },
+    {
+      "codigo": "INS-040",
+      "nombre": "Galleta Samba",
+      "unidad": "ud",
+      "tipo": "Golosina / complemento"
+    },
+    {
+      "codigo": "INS-041",
+      "nombre": "Galleta Pingüino",
+      "unidad": "ud",
+      "tipo": "Golosina / complemento"
+    },
+    {
+      "codigo": "INS-042",
+      "nombre": "Galleta Flaquito",
+      "unidad": "ud",
+      "tipo": "Golosina / complemento"
+    },
+    {
+      "codigo": "INS-043",
+      "nombre": "Galleta Oreo",
+      "unidad": "ud",
+      "tipo": "Golosina / complemento"
+    },
+    {
+      "codigo": "INS-044",
+      "nombre": "Pirulín",
+      "unidad": "ud",
+      "tipo": "Golosina / complemento"
+    }
+  ],
+  "productos": [
+    {
+      "codigo": "PV-001",
+      "nombre": "Sundae",
+      "categoria": "Servido en camión",
+      "precio_usd": 2.7,
+      "lleva_mix": true,
+      "nombre_original": "SUNDAE",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 172,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 10,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 21,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-020",
+          "nombre": "Vaso sundae",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-002",
+      "nombre": "Barquilla",
+      "categoria": "Servido en camión",
+      "precio_usd": 1.15,
+      "lleva_mix": true,
+      "nombre_original": "BARQUILLAS",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 82,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 4,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-010",
+          "nombre": "Cono de barquilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 14,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-003",
+      "nombre": "Barquillón",
+      "categoria": "Servido en camión",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "BARQUILLON",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 129,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 4,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 35,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-012",
+          "nombre": "Cono barquillón",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-044",
+          "nombre": "Pirulín",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        },
+        {
+          "insumo": "INS-043",
+          "nombre": "Galleta Oreo",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        }
+      ]
+    },
+    {
+      "codigo": "PV-004",
+      "nombre": "Maxicono",
+      "categoria": "Servido en camión",
+      "precio_usd": 2.7,
+      "lleva_mix": true,
+      "nombre_original": "MAXICONOS",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 110,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 7,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 10,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-011",
+          "nombre": "Cono maxicono",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-044",
+          "nombre": "Pirulín",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        },
+        {
+          "insumo": "INS-043",
+          "nombre": "Galleta Oreo",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        }
+      ]
+    },
+    {
+      "codigo": "PV-005",
+      "nombre": "Cesta",
+      "categoria": "Servido en camión",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "CESTAS",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 116,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 5,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 32,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-013",
+          "nombre": "Cesta (galleta)",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-044",
+          "nombre": "Pirulín",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        },
+        {
+          "insumo": "INS-043",
+          "nombre": "Galleta Oreo",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": "ALT-1"
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-006",
+      "nombre": "Tinita",
+      "categoria": "Servido en camión",
+      "precio_usd": 2.3,
+      "lleva_mix": true,
+      "nombre_original": "TINITAS",
+      "nota": null,
+      "receta": [
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 102,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 2,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-003",
+          "nombre": "Topping",
+          "cantidad": 34,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-022",
+          "nombre": "Tinita",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-010",
+      "nombre": "Especial Samba",
+      "categoria": "Especial domo",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "VASO DOMO (ESPECIALES)",
+      "nota": "Precio único de 'Vaso domo (especiales)'",
+      "receta": [
+        {
+          "insumo": "INS-021",
+          "nombre": "Vaso domo 8 oz",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 141,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 47,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-040",
+          "nombre": "Galleta Samba",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-011",
+      "nombre": "Especial Pingüino",
+      "categoria": "Especial domo",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "VASO DOMO (ESPECIALES)",
+      "nota": "Precio único de 'Vaso domo (especiales)'",
+      "receta": [
+        {
+          "insumo": "INS-021",
+          "nombre": "Vaso domo 8 oz",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 141,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 47,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-041",
+          "nombre": "Galleta Pingüino",
+          "cantidad": 2,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-012",
+      "nombre": "Especial Flaquito",
+      "categoria": "Especial domo",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "VASO DOMO (ESPECIALES)",
+      "nota": "Precio único de 'Vaso domo (especiales)'",
+      "receta": [
+        {
+          "insumo": "INS-021",
+          "nombre": "Vaso domo 8 oz",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 141,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 47,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-042",
+          "nombre": "Galleta Flaquito",
+          "cantidad": 3,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-013",
+      "nombre": "Especial Oreo",
+      "categoria": "Especial domo",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "VASO DOMO (ESPECIALES)",
+      "nota": "Precio único de 'Vaso domo (especiales)'",
+      "receta": [
+        {
+          "insumo": "INS-021",
+          "nombre": "Vaso domo 8 oz",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 141,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 47,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-043",
+          "nombre": "Galleta Oreo",
+          "cantidad": 4,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-014",
+      "nombre": "Especial Pirulín",
+      "categoria": "Especial domo",
+      "precio_usd": 3.7,
+      "lleva_mix": true,
+      "nombre_original": "VASO DOMO (ESPECIALES)",
+      "nota": "Precio único de 'Vaso domo (especiales)'",
+      "receta": [
+        {
+          "insumo": "INS-021",
+          "nombre": "Vaso domo 8 oz",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-001",
+          "nombre": "Mix de helado (base)",
+          "cantidad": 141,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-002",
+          "nombre": "Sirope",
+          "cantidad": 47,
+          "unidad": "g",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-044",
+          "nombre": "Pirulín",
+          "cantidad": 5,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-030",
+          "nombre": "Cucharilla",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        },
+        {
+          "insumo": "INS-031",
+          "nombre": "Servilleta",
+          "cantidad": 1,
+          "unidad": "ud",
+          "grupo_alternativo": null
+        }
+      ]
+    },
+    {
+      "codigo": "PV-020",
+      "nombre": "Bandeja 500 g",
+      "categoria": "Empaquetado",
+      "precio_usd": 5.0,
+      "lleva_mix": false,
+      "nombre_original": "BANDEJA 500 GRS",
+      "nota": "Sabor según lista de bandejas; sin receta en el original",
+      "receta": []
+    },
+    {
+      "codigo": "PV-021",
+      "nombre": "Bandeja 1000 g",
+      "categoria": "Empaquetado",
+      "precio_usd": 8.0,
+      "lleva_mix": false,
+      "nombre_original": "BANDEJA 1000 GRS",
+      "nota": "Sabor según lista de bandejas; sin receta en el original",
+      "receta": []
+    },
+    {
+      "codigo": "PV-022",
+      "nombre": "Sundae congelado",
+      "categoria": "Empaquetado",
+      "precio_usd": 1.7,
+      "lleva_mix": false,
+      "nombre_original": "SUNDAE CONGELADO",
+      "nota": "Sin receta en el original",
+      "receta": []
+    },
+    {
+      "codigo": "PV-023",
+      "nombre": "Paquete de conos",
+      "categoria": "Empaquetado",
+      "precio_usd": 1.0,
+      "lleva_mix": false,
+      "nombre_original": "PAQUETES DE CONO",
+      "nota": "Sin receta ni cantidad de conos por paquete en el original",
+      "receta": []
+    },
+    {
+      "codigo": "PV-030",
+      "nombre": "Adicional",
+      "categoria": "Adicional",
+      "precio_usd": 0.25,
+      "lleva_mix": false,
+      "nombre_original": "ADICIONALES",
+      "nota": "No se especifica qué incluye (¿topping o sirope extra?)",
+      "receta": []
+    }
+  ],
+  "sabores": {
+    "mix": [
+      {
+        "codigo": "SM-01",
+        "nombre": "Fresa"
+      },
+      {
+        "codigo": "SM-02",
+        "nombre": "Mantecado"
+      },
+      {
+        "codigo": "SM-03",
+        "nombre": "Mantecado-Fresa"
+      },
+      {
+        "codigo": "SM-04",
+        "nombre": "Chocolate"
+      },
+      {
+        "codigo": "SM-05",
+        "nombre": "Chocolate-Fresa"
+      },
+      {
+        "codigo": "SM-06",
+        "nombre": "Chocolate-Mantecado"
+      }
+    ],
+    "bandejas": [
+      {
+        "codigo": "SB-01",
+        "nombre": "Choco Brownie"
+      },
+      {
+        "codigo": "SB-02",
+        "nombre": "Choco Fresa"
+      },
+      {
+        "codigo": "SB-03",
+        "nombre": "Choco Oreo"
+      },
+      {
+        "codigo": "SB-04",
+        "nombre": "Chocolate"
+      },
+      {
+        "codigo": "SB-05",
+        "nombre": "Coco"
+      },
+      {
+        "codigo": "SB-06",
+        "nombre": "Fresa"
+      },
+      {
+        "codigo": "SB-07",
+        "nombre": "Fresa con mantecado"
+      },
+      {
+        "codigo": "SB-08",
+        "nombre": "Golazo"
+      },
+      {
+        "codigo": "SB-09",
+        "nombre": "Oreo"
+      },
+      {
+        "codigo": "SB-10",
+        "nombre": "Raspberry"
+      },
+      {
+        "codigo": "SB-11",
+        "nombre": "Ron con Pasas"
+      },
+      {
+        "codigo": "SB-12",
+        "nombre": "Stracciatella"
+      },
+      {
+        "codigo": "SB-13",
+        "nombre": "Tornado"
+      },
+      {
+        "codigo": "SB-14",
+        "nombre": "Mantecado"
+      }
+    ]
+  }
+}
