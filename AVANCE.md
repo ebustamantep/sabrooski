@@ -263,3 +263,30 @@ Se ejecutó la carga real del catálogo y se corrigieron bugs encontrados:
   (BARQ-110, BARQ-160, CEST-120, SUND-170) quedaron sin categoría (no aparecen en el POS).
 
 **Pendiente:** prueba funcional del popup en TakePOS.
+
+---
+
+## 12. Migración de datos a producción (temporal)
+
+Herramientas **temporales** para clonar categorías + productos + constantes entre
+instalaciones, por **label/ref** (independiente de IDs). Eliminar tras las pruebas.
+
+- `admin/catalogo_export.php` (local): genera y descarga `catalogo_export_*.json` con
+  categorías de producto, productos (categorías, precio TTC, `tosell`, descripción y
+  **todos los extrafields**), las **definiciones** de extrafields de producto y las
+  constantes del módulo.
+- `admin/catalogo_import.php` (producción): sube el JSON (o usa
+  `custom/sabrooskipos/catalogo_export.json`); crea categorías (por jerarquía de labels),
+  productos (por ref, precio TTC con IVA `SABROOSKIPOS_TVA_TX`), las definiciones de
+  extrafields que falten, y fija las constantes resolviendo IDs por label/ref. Idempotente.
+- Lógica en la lib: `sabrooskiposExportCatalogo()` / `sabrooskiposImportCatalogo()`.
+  Prueba CLI: `test/migracion_cli.php` (export+import en local; 10 categorías, 53
+  productos, 5 extrafields; re-import sin cambios).
+
+**Uso:** en local → abrir `.../custom/sabrooskipos/admin/catalogo_export.php` → *Descargar
+JSON*. En producción → `.../custom/sabrooskipos/admin/catalogo_import.php` → subir el JSON
+→ *Importar*.
+
+**Nota producción:** requiere Dolibarr + TakePOS instalados y el módulo **activado**
+(para crear extrafields/permisos). No viajan en el JSON: `TAKEPOS_NUM_TERMINALS`, almacenes,
+usuarios y datos de empresa; ajustarlos aparte.

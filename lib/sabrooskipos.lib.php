@@ -136,7 +136,7 @@ function sabrooskiposEnsureProduct($db, $ref, $label, $price_ttc, $catid, $user,
 	$prod->label = $label;
 	$prod->status = 1;
 	$prod->type = 0;
-	$prod->tosell = 1;
+	$prod->tosell = isset($opts['tosell']) ? (int) $opts['tosell'] : 1;
 	$prod->price_base_type = 'TTC';
 	$prod->tva_tx = $tva;
 
@@ -290,6 +290,385 @@ function sabrooskiposLoadCatalogo($db, $user, $jsonfile, &$report)
 	if (!empty($catsale['Adicional']) && sabrooskiposGetConst('SABROOSKIPOS_HIDDEN_CATEGORIES', 0) === '') {
 		dolibarr_set_const($db, 'SABROOSKIPOS_HIDDEN_CATEGORIES', (string) $catsale['Adicional'], 'chaine', 0, '', $conf->entity);
 		$report['notas'][] = 'SABROOSKIPOS_HIDDEN_CATEGORIES = '.$catsale['Adicional'];
+	}
+
+	return 1;
+}
+
+/**
+ * Exporta el catálogo (categorías de producto + productos + constantes) a un
+ * array portable, usando labels/refs en vez de IDs. Lo consume
+ * sabrooskiposImportCatalogo() en otra instalación.
+ *
+ * @param DoliDB $db
+ * @return array
+ */
+function sabrooskiposExportCatalogo($db)
+{
+	global $conf;
+
+	$entity = (int) $conf->entity;
+	$typeProduct = Categorie::TYPE_PRODUCT;
+
+	$idToLabel = array();
+	$idToRef = array();
+
+	// Categorías de producto (con label del padre)
+	$categories = array();
+	$sql = "SELECT c.rowid, c.label, c.fk_parent, pc.label AS parent_label";
+	$sql .= " FROM ".MAIN_DB_PREFIX."categorie as c";
+	$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."categorie as pc ON pc.rowid = c.fk_parent";
+	$sql .= " WHERE c.type = ".((int) $typeProduct)." AND c.entity = ".$entity;
+	$sql .= " ORDER BY c.fk_parent ASC, c.label ASC";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$categories[] = array('label' => (string) $obj->label, 'parent' => (string) $obj->parent_label);
+			$idToLabel[(int) $obj->rowid] = (string) $obj->label;
+		}
+	}
+
+	// Productos ligados a alguna categoría de producto
+	$products = array();
+	$idxByRef = array();
+	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price_ttc, p.tosell, p.description";
+	$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie_product as cp ON cp.fk_product = p.rowid";
+	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cp.fk_categorie AND c.type = ".((int) $typeProduct);
+	$sql .= " WHERE p.entity = ".$entity;
+	$sql .= " ORDER BY p.ref ASC";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$ref = (string) $obj->ref;
+			$idxByRef[$ref] = count($products);
+			$products[] = array(
+				'ref' => $ref,
+				'label' => (string) $obj->label,
+				'price_ttc' => (float) $obj->price_ttc,
+				'tosell' => (int) $obj->tosell,
+				'description' => (string) $obj->description,
+				'categories' => array(),
+				'extrafields' => array(),
+			);
+			$idToRef[(int) $obj->rowid] = $ref;
+		}
+	}
+
+	// Categorías por producto (labels)
+	$sql = "SELECT cp.fk_product, c.label FROM ".MAIN_DB_PREFIX."categorie_product as cp";
+	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cp.fk_categorie";
+	$sql .= " WHERE c.type = ".((int) $typeProduct)." AND c.entity = ".$entity;
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$pid = (int) $obj->fk_product;
+			if (isset($idToRef[$pid]) && isset($idxByRef[$idToRef[$pid]])) {
+				$products[$idxByRef[$idToRef[$pid]]]['categories'][] = (string) $obj->label;
+			}
+		}
+	}
+
+	// Extrafields de producto: definiciones (para recrearlas en destino) + valores
+	$efdefs = array();
+	$efnames = array();
+	$sql = "SELECT name, label, type, size, pos, param, fielddefault, alwayseditable, perms, list, help, enabled, fieldrequired, fieldunique, totalizable, printable";
+	$sql .= " FROM ".MAIN_DB_PREFIX."extrafields";
+	$sql .= " WHERE elementtype = 'product' AND type <> 'separate' AND (entity = ".$entity." OR entity = 0)";
+	$sql .= " ORDER BY pos ASC, name ASC";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$nm = (string) $obj->name;
+			if (!preg_match('/^\w[a-zA-Z0-9_]*$/', $nm)) {
+				continue; // nombre no válido como columna
+			}
+			$efnames[] = $nm;
+			$param = $obj->param;
+			if (is_string($param) && $param !== '') {
+				$tmp = @unserialize($param);
+				if ($tmp !== false || $param === 'b:0;') {
+					$param = $tmp;
+				}
+			}
+			$efdefs[] = array(
+				'name' => $nm,
+				'label' => (string) $obj->label,
+				'type' => (string) $obj->type,
+				'size' => (string) $obj->size,
+				'pos' => (int) $obj->pos,
+				'param' => $param,
+				'default_value' => (string) $obj->fielddefault,
+				'alwayseditable' => (int) $obj->alwayseditable,
+				'perms' => (string) $obj->perms,
+				'list' => (string) $obj->list,
+				'help' => (string) $obj->help,
+				'enabled' => (string) $obj->enabled,
+				'required' => (int) $obj->fieldrequired,
+				'unique' => (int) $obj->fieldunique,
+				'totalizable' => (int) $obj->totalizable,
+				'printable' => (int) $obj->printable,
+			);
+		}
+	}
+
+	// Valores de esos extrafields por producto
+	if (!empty($efnames)) {
+		$sql = "SELECT fk_object, ".implode(', ', $efnames)." FROM ".MAIN_DB_PREFIX."product_extrafields";
+		$resql = $db->query($sql);
+		if ($resql) {
+			while ($obj = $db->fetch_object($resql)) {
+				$pid = (int) $obj->fk_object;
+				if (isset($idToRef[$pid]) && isset($idxByRef[$idToRef[$pid]])) {
+					$ef = array();
+					foreach ($efnames as $n) {
+						if (isset($obj->$n) && $obj->$n !== null && $obj->$n !== '') {
+							$ef[$n] = (string) $obj->$n;
+						}
+					}
+					$products[$idxByRef[$idToRef[$pid]]]['extrafields'] = $ef;
+				}
+			}
+		}
+	}
+
+	// Constantes del módulo (por label / ref)
+	$constants_by_category_label = array();
+	foreach (array('SABROOSKIPOS_CATEGORY_FLAVORS', 'SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 'SABROOSKIPOS_CATEGORY_TOPPINGS', 'SABROOSKIPOS_CATEGORY_SYRUPS', 'SABROOSKIPOS_CATEGORY_ADICIONAL') as $const) {
+		$cid = (int) getDolGlobalInt($const);
+		if ($cid > 0 && isset($idToLabel[$cid])) {
+			$constants_by_category_label[$const] = $idToLabel[$cid];
+		}
+	}
+	$constants_by_product_ref = array();
+	$apid = (int) getDolGlobalInt('SABROOSKIPOS_PRODUCT_ADICIONAL');
+	if ($apid > 0 && isset($idToRef[$apid])) {
+		$constants_by_product_ref['SABROOSKIPOS_PRODUCT_ADICIONAL'] = $idToRef[$apid];
+	}
+	$hidden_category_labels = array();
+	$hid = getDolGlobalString('SABROOSKIPOS_HIDDEN_CATEGORIES');
+	if ($hid !== '') {
+		foreach (explode(',', $hid) as $cid) {
+			$cid = (int) trim($cid);
+			if ($cid > 0 && isset($idToLabel[$cid])) {
+				$hidden_category_labels[] = $idToLabel[$cid];
+			}
+		}
+	}
+	$rootid = (int) getDolGlobalInt('TAKEPOS_ROOT_CATEGORY_ID');
+	$root_category_label = ($rootid > 0 && isset($idToLabel[$rootid])) ? $idToLabel[$rootid] : '';
+
+	return array(
+		'generated_at' => dol_print_date(dol_now(), 'dayhourrfc'),
+		'root_category_label' => $root_category_label,
+		'categories' => $categories,
+		'products' => $products,
+		'constants_by_category_label' => $constants_by_category_label,
+		'constants_by_product_ref' => $constants_by_product_ref,
+		'hidden_category_labels' => $hidden_category_labels,
+		'extrafield_definitions' => $efdefs,
+		'constants_plain' => array(
+			'SABROOSKIPOS_TVA_TX' => getDolGlobalString('SABROOSKIPOS_TVA_TX', '16'),
+		),
+	);
+}
+
+/**
+ * Importa un catálogo exportado (categorías + productos + constantes) resolviendo
+ * los IDs por LABEL (categorías) y REF (productos), para poder pasar datos entre
+ * instalaciones con IDs distintos. Idempotente.
+ *
+ * Estructura esperada de $data (ver admin/catalogo_export.php):
+ *   categories: [ {label, parent}, ... ]
+ *   products:   [ {ref, label, price_ttc, tosell, categories:[label,...], extrafields:{...}}, ... ]
+ *   root_category_label: "Productos de punto de venta (POS)"
+ *   constants_by_category_label: { CONST => "label", ... }
+ *   constants_by_product_ref:    { CONST => "ref", ... }
+ *   hidden_category_labels: ["Adicional", ...]
+ *   constants_plain: { CONST => "valor", ... }
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @param array  $data    Datos decodificados del JSON
+ * @param array  $report  Reporte (por referencia)
+ * @return int 1 si OK, 0 si los datos no son válidos
+ */
+function sabrooskiposImportCatalogo($db, $user, $data, &$report)
+{
+	global $conf;
+
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+	require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+
+	if (!is_array($data) || (empty($data['categories']) && empty($data['products']))) {
+		return 0;
+	}
+
+	// 1) Extrafields de producto del módulo (los conocidos)
+	sabrooskiposEnsureExtrafields($db);
+
+	// 1b) Definiciones de extrafields exportadas: crear las que falten
+	if (!empty($data['extrafield_definitions']) && is_array($data['extrafield_definitions'])) {
+		$ef = new ExtraFields($db);
+		$existing = $ef->fetch_name_optionals_label('product');
+		if (!is_array($existing)) {
+			$existing = array();
+		}
+		foreach ($data['extrafield_definitions'] as $d) {
+			$nm = isset($d['name']) ? (string) $d['name'] : '';
+			if ($nm === '' || isset($existing[$nm])) {
+				continue; // ya existe (o inválido)
+			}
+			$res = $ef->addExtraField(
+				$nm,
+				isset($d['label']) ? $d['label'] : $nm,
+				isset($d['type']) ? $d['type'] : 'varchar',
+				isset($d['pos']) ? (int) $d['pos'] : 0,
+				isset($d['size']) ? $d['size'] : '',
+				'product',
+				isset($d['unique']) ? (int) $d['unique'] : 0,
+				isset($d['required']) ? (int) $d['required'] : 0,
+				isset($d['default_value']) ? $d['default_value'] : '',
+				isset($d['param']) ? $d['param'] : '',
+				isset($d['alwayseditable']) ? (int) $d['alwayseditable'] : 0,
+				isset($d['perms']) ? $d['perms'] : '',
+				isset($d['list']) ? $d['list'] : '-1',
+				isset($d['help']) ? $d['help'] : '',
+				'', // computed
+				'', // entity (debe ir vacío para no romper el INSERT)
+				'sabrooskipos@sabrooskipos', // langfile
+				isset($d['enabled']) ? $d['enabled'] : '1',
+				isset($d['totalizable']) ? (int) $d['totalizable'] : 0,
+				isset($d['printable']) ? (int) $d['printable'] : 0
+			);
+			if ($res > 0) {
+				$existing[$nm] = isset($d['label']) ? $d['label'] : $nm;
+				$report['notas'][] = 'extrafield creado: '.$nm;
+			} else {
+				$report['errores'][] = 'extrafield "'.$nm.'" no creado ('.$ef->errno.')';
+			}
+		}
+	}
+
+	// 2) Categorías (multi-pase por jerarquía: primero los padres)
+	$cats = (isset($data['categories']) && is_array($data['categories'])) ? $data['categories'] : array();
+	$idbyLabel = array();
+	$pending = $cats;
+	$guard = 0;
+	while (!empty($pending) && $guard < 100) {
+		$guard++;
+		$next = array();
+		foreach ($pending as $c) {
+			$label = isset($c['label']) ? (string) $c['label'] : '';
+			if ($label === '') {
+				continue;
+			}
+			$parentLabel = isset($c['parent']) ? (string) $c['parent'] : '';
+			if ($parentLabel === '') {
+				$parentid = 0;
+			} elseif (isset($idbyLabel[$parentLabel])) {
+				$parentid = $idbyLabel[$parentLabel];
+			} else {
+				$next[] = $c; // aún no existe el padre: reintentar luego
+				continue;
+			}
+			$id = sabrooskiposEnsureCategory($db, $label, $parentid, $user, $report);
+			if ($id > 0) {
+				$idbyLabel[$label] = $id;
+			}
+		}
+		if (count($next) === count($pending)) {
+			break; // sin progreso: padres inexistentes
+		}
+		$pending = $next;
+	}
+	foreach ($pending as $c) {
+		$report['errores'][] = 'Categoría no creada "'.(isset($c['label']) ? $c['label'] : '?').'" (padre "'.(isset($c['parent']) ? $c['parent'] : '').'")';
+	}
+
+	// 3) Productos
+	$tva = (float) getDolGlobalString('SABROOSKIPOS_TVA_TX', '16');
+	$prodIdByRef = array();
+	$products = (isset($data['products']) && is_array($data['products'])) ? $data['products'] : array();
+	foreach ($products as $p) {
+		$ref = isset($p['ref']) ? trim((string) $p['ref']) : '';
+		if ($ref === '') {
+			continue;
+		}
+		$label = isset($p['label']) ? (string) $p['label'] : $ref;
+		$price = isset($p['price_ttc']) ? (float) $p['price_ttc'] : 0;
+
+		$catids = array();
+		if (!empty($p['categories']) && is_array($p['categories'])) {
+			foreach ($p['categories'] as $clabel) {
+				if (isset($idbyLabel[$clabel])) {
+					$catids[] = $idbyLabel[$clabel];
+				}
+			}
+		}
+
+		$opts = array(
+			'tva_tx' => $tva,
+			'tosell' => (isset($p['tosell']) ? (int) $p['tosell'] : 1),
+			'extrafields' => (isset($p['extrafields']) && is_array($p['extrafields'])) ? $p['extrafields'] : array(),
+		);
+
+		$pid = sabrooskiposEnsureProduct($db, $ref, $label, $price, (count($catids) ? $catids[0] : 0), $user, $report, $opts);
+		if ($pid > 0) {
+			$prodIdByRef[$ref] = $pid;
+			if (count($catids) > 1) { // asignar TODAS las categorías
+				$prod = new Product($db);
+				if ($prod->fetch($pid) > 0) {
+					$prod->setCategories($catids);
+				}
+			}
+		}
+	}
+
+	// 4) Constantes (por label / ref / valor)
+	if (!empty($data['root_category_label']) && isset($idbyLabel[$data['root_category_label']])) {
+		dolibarr_set_const($db, 'TAKEPOS_ROOT_CATEGORY_ID', (string) $idbyLabel[$data['root_category_label']], 'chaine', 0, '', $conf->entity);
+		$report['notas'][] = 'TAKEPOS_ROOT_CATEGORY_ID = '.$idbyLabel[$data['root_category_label']];
+	}
+	if (!empty($data['constants_by_category_label']) && is_array($data['constants_by_category_label'])) {
+		foreach ($data['constants_by_category_label'] as $const => $clabel) {
+			if (isset($idbyLabel[$clabel])) {
+				dolibarr_set_const($db, $const, (string) $idbyLabel[$clabel], 'chaine', 0, '', $conf->entity);
+				$report['notas'][] = $const.' = '.$idbyLabel[$clabel].' ('.$clabel.')';
+			} else {
+				$report['errores'][] = $const.': categoría "'.$clabel.'" no encontrada';
+			}
+		}
+	}
+	if (!empty($data['constants_by_product_ref']) && is_array($data['constants_by_product_ref'])) {
+		foreach ($data['constants_by_product_ref'] as $const => $pref) {
+			if (isset($prodIdByRef[$pref])) {
+				dolibarr_set_const($db, $const, (string) $prodIdByRef[$pref], 'chaine', 0, '', $conf->entity);
+				$report['notas'][] = $const.' = '.$prodIdByRef[$pref].' ('.$pref.')';
+			} else {
+				$report['errores'][] = $const.': producto "'.$pref.'" no encontrado';
+			}
+		}
+	}
+	if (!empty($data['hidden_category_labels']) && is_array($data['hidden_category_labels'])) {
+		$ids = array();
+		foreach ($data['hidden_category_labels'] as $clabel) {
+			if (isset($idbyLabel[$clabel])) {
+				$ids[] = $idbyLabel[$clabel];
+			}
+		}
+		if ($ids) {
+			dolibarr_set_const($db, 'SABROOSKIPOS_HIDDEN_CATEGORIES', implode(',', $ids), 'chaine', 0, '', $conf->entity);
+			$report['notas'][] = 'SABROOSKIPOS_HIDDEN_CATEGORIES = '.implode(',', $ids);
+		}
+	}
+	if (!empty($data['constants_plain']) && is_array($data['constants_plain'])) {
+		foreach ($data['constants_plain'] as $const => $val) {
+			dolibarr_set_const($db, $const, (string) $val, 'chaine', 0, '', $conf->entity);
+			$report['notas'][] = $const.' = '.$val;
+		}
 	}
 
 	return 1;
