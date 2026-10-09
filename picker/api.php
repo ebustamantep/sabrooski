@@ -144,22 +144,22 @@ function pickerSimpleProducts($db, $catid)
 }
 
 /**
- * Producto configurado como "Adicional" (precio plano) para el terminal.
+ * Datos de un producto (id, label, precio) para una fila de "Adicional".
  *
  * @param DoliDB $db
- * @param int    $term  Número de terminal
- * @return array|null   {id, label, price_ttc, price_formated} o null si no está configurado
+ * @param int    $term   Número de terminal (para el precio por cliente)
+ * @param int    $pid    id del producto
+ * @param string $label  Etiqueta a mostrar (si vacío, se usa la del producto)
+ * @return array|null    {id, label, price_ttc, price_formated} o null
  */
-function pickerGetAdicional($db, $term)
+function pickerAdicionalItem($db, $term, $pid, $label = '')
 {
-	$pid = (int) sabrooskiposGetConst('SABROOSKIPOS_PRODUCT_ADICIONAL', $term);
-	if ($pid <= 0) {
-		return null;
-	}
-
 	$prod = new Product($db);
 	if ($prod->fetch($pid) <= 0) {
 		return null;
+	}
+	if ($label === '') {
+		$label = $prod->label;
 	}
 
 	$sociddefault = getDolGlobalInt('CASHDESK_ID_THIRDPARTY'.$term);
@@ -173,10 +173,63 @@ function pickerGetAdicional($db, $term)
 
 	return array(
 		'id' => (int) $prod->id,
-		'label' => $prod->label,
+		'label' => $label,
 		'price_ttc' => $price_ttc,
 		'price_formated' => price($price_ttc, 1, $GLOBALS['langs'], 1, -1, -1, $GLOBALS['conf']->currency),
 	);
+}
+
+/**
+ * Lista de adicionales seleccionables para el terminal.
+ *
+ * Reutiliza las categorías ya existentes: Toppings, Sirope y Adicional (más el
+ * producto de respaldo SABROOSKIPOS_PRODUCT_ADICIONAL si al final no hay nada).
+ * Cada producto se suma como una línea aparte con su propio precio.
+ *
+ * @param DoliDB $db
+ * @param int    $term  Número de terminal
+ * @return array<array{id:int,label:string,price_ttc:float,price_formated:string}>
+ */
+function pickerAdicionalOptions($db, $term)
+{
+	$res = array();
+	$seen = array();
+
+	// Orden: Toppings, Sirope y (al final) la categoría Adicional genérica.
+	$catids = array(
+		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term),
+		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term),
+		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_ADICIONAL', $term),
+	);
+
+	foreach ($catids as $catid) {
+		if ($catid <= 0) {
+			continue;
+		}
+		foreach (pickerSimpleProducts($db, $catid) as $p) {
+			$pid = (int) $p['id'];
+			if (isset($seen[$pid])) {
+				continue; // sin duplicados si un producto está en varias categorías
+			}
+			$seen[$pid] = true;
+			$item = pickerAdicionalItem($db, $term, $pid, (string) $p['label']);
+			if ($item) {
+				$res[] = $item;
+			}
+		}
+	}
+
+	if (empty($res)) {
+		$pid = (int) sabrooskiposGetConst('SABROOSKIPOS_PRODUCT_ADICIONAL', $term);
+		if ($pid > 0) {
+			$item = pickerAdicionalItem($db, $term, $pid);
+			if ($item) {
+				$res[] = $item;
+			}
+		}
+	}
+
+	return $res;
 }
 
 if ($action == 'getData') {
@@ -184,7 +237,7 @@ if ($action == 'getData') {
 		'categories' => pickerCategories($db),
 		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
 		'flavors_bandejas' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term)),
-		'adicional' => pickerGetAdicional($db, $term),
+		'adicionals' => pickerAdicionalOptions($db, $term),
 	));
 	exit;
 }
@@ -282,7 +335,7 @@ if ($action == 'getProduct') {
 		),
 		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
 		'flavors_bandejas' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term)),
-		'adicional' => pickerGetAdicional($db, $term),
+		'adicionals' => pickerAdicionalOptions($db, $term),
 	));
 	exit;
 }

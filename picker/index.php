@@ -58,11 +58,28 @@ $place = GETPOST('place', 'alpha');
 $invoiceid = GETPOSTINT('invoiceid');
 $token = GETPOST('token', 'alpha');
 
+/**
+ * Cache-buster por CONTENIDO (md5) en vez de filemtime: si el archivo se guarda
+ * varias veces en el mismo segundo, filemtime no cambia y el navegador puede
+ * servir una versión intermedia cacheada. El hash cambia con cualquier edición.
+ *
+ * @param string $relpath Ruta relativa dentro de custom/sabrooskipos/
+ * @return string
+ */
+function sabrooskiposAssetBuster($relpath)
+{
+	$file = DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/'.$relpath;
+	if (is_readable($file)) {
+		return (defined('DOL_VERSION') ? DOL_VERSION : '1').'-'.substr(md5_file($file), 0, 12);
+	}
+	return (defined('DOL_VERSION') ? DOL_VERSION : '1').'-'.(string) @filemtime($file);
+}
+
 // Rutas RELATIVAS a DOL_URL_ROOT (sin el host ni el directorio raíz):
 // top_htmlhead las pasa por dol_buildpath (que antepone DOL_URL_ROOT y el prefijo
 // /custom si el archivo vive en custom/). NUNCA pasar DOL_URL_ROOT delante.
 $arrayofcss = array(
-	'/sabrooskipos/css/picker.css?v=' . (defined('DOL_VERSION') ? DOL_VERSION : '1') . '-' . @filemtime(DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/css/picker.css')
+	'/sabrooskipos/css/picker.css?v=' . sabrooskiposAssetBuster('css/picker.css')
 );
 
 // Terminal / cliente por defecto (lo usa el endpoint nativo getProducts para el precio)
@@ -74,7 +91,7 @@ $head = '<meta name="viewport" content="width=device-width, initial-scale=1.0, m
 // picker.js se carga al final del body (NO en el head), para que window.PICKER ya exista.
 // Añadimos un parámetro de versión (?v=...) para forzar al navegador a descargar la
 // copia más reciente y evitar que sirva una versión en caché tras cada cambio.
-$pickerJsCacheBuster = (defined('DOL_VERSION') ? DOL_VERSION : '1') . '-' . @filemtime(DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/js/picker.js');
+$pickerJsCacheBuster = sabrooskiposAssetBuster('js/picker.js');
 top_htmlhead($head, $langs->trans('TomaDeOrden'), 0, 0, array(), $arrayofcss);
 ?>
 <script>

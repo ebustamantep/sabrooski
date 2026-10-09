@@ -182,12 +182,13 @@ class modSabrooskiPOS extends DolibarrModules
 			1 => array('SABROOSKIPOS_CATEGORY_FLAVORS', 'chaine', '', 'Categoría de sabores mix (helados servidos)', 0),
 			2 => array('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 'chaine', '', 'Categoría de sabores de bandejas', 0),
 			3 => array('SABROOSKIPOS_PRODUCT_ADICIONAL', 'chaine', '', 'Producto que representa el adicional (precio plano)', 0),
+			4 => array('SABROOSKIPOS_CATEGORY_ADICIONAL', 'chaine', '', 'Categoría con los productos adicionales seleccionables', 0),
 			// Categorías a OCULTAR en el popup "Toma de orden" (IDs separados por coma).
 			// Ej.: '8' para ocultar la categoría "Venta al mayor". Vacío = mostrar todas.
 			// Se usa para que categorías que no son de toma de pedidos no aparezcan.
-			4 => array('SABROOSKIPOS_HIDDEN_CATEGORIES', 'chaine', '', 'Categorías ocultas en el popup (IDs separados por coma)', 0),
+			5 => array('SABROOSKIPOS_HIDDEN_CATEGORIES', 'chaine', '', 'Categorías ocultas en el popup (IDs separados por coma)', 0),
 			// IVA (%) aplicado a los productos cargados desde el catálogo (precios TTC).
-			5 => array('SABROOSKIPOS_TVA_TX', 'chaine', '16', 'IVA (%) aplicado a los productos cargados desde el catálogo', 0),
+			6 => array('SABROOSKIPOS_TVA_TX', 'chaine', '16', 'IVA (%) aplicado a los productos cargados desde el catálogo', 0),
 		);
 
 		// Some keys to add into the overwriting translation tables

@@ -33,8 +33,14 @@ SabrooskiCategoryFlavors = Categoría de sabores mix
 SabrooskiCategoryFlavorsDesc = Categoría de Dolibarr que agrupa los sabores de helados servidos (mix)
 SabrooskiCategoryFlavorsBandejas = Categoría de sabores de bandejas
 SabrooskiCategoryFlavorsBandejasDesc = Categoría de Dolibarr que agrupa los sabores de las bandejas (empaquetado)
+SabrooskiCategoryToppings = Categoría de toppings (adicionales)
+SabrooskiCategoryToppingsDesc = Categoría de toppings que aparecen como adicionales seleccionables en el popup.
+SabrooskiCategorySyrups = Categoría de siropes (adicionales)
+SabrooskiCategorySyrupsDesc = Categoría de siropes que aparecen como adicionales seleccionables en el popup.
+SabrooskiCategoryAdicional = Categoría de adicionales
+SabrooskiCategoryAdicionalDesc = Categoría de Dolibarr con los productos adicionales seleccionables en el popup (ej. Topping extra, Sirope extra). Cada uno se suma como una línea aparte a su precio.
 SabrooskiProductAdicional = Producto Adicional
-SabrooskiProductAdicionalDesc = Producto que representa el adicional a precio plano (se suma como una línea aparte)
+SabrooskiProductAdicionalDesc = Producto que representa el adicional a precio plano (se suma como una línea aparte). Se usa como respaldo si no hay categoría de adicionales.
 
 # Categorías ocultas en el popup "Toma de orden"
 SabrooskiHiddenCategories = Categorías ocultas en el popup

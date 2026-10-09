@@ -239,3 +239,26 @@ Se ejecutó la carga real del catálogo y se corrigieron bugs encontrados:
 
 **Pendiente:** prueba funcional en TakePOS (popup) y decisión sobre las categorías legacy
 2/3/4, que siguen visibles en el **grid nativo** del TakePOS (el popup ya las oculta).
+
+---
+
+## 11. Adicionales como lista + fixes del popup (2026-10-08)
+
+- **Adicionales = lista seleccionable:** la sección "Adicionales" del modal ahora
+  lista **varios** adicionales, cada uno con `+ / −` y su propio precio; se suman como
+  líneas aparte.
+  - Fuente (sin duplicados): categorías **Topping** (`SABROOSKIPOS_CATEGORY_TOPPINGS`),
+    **Sirope** (`SABROOSKIPOS_CATEGORY_SYRUPS`) y **Adicional**
+    (`SABROOSKIPOS_CATEGORY_ADICIONAL`). Hoy: 5 toppings + 4 siropes + 1 genérico = 10.
+  - Se reincorporaron los campos Toppings/Sirope en el Setup por terminal.
+- **Total del modal:** `lineTotalPreview` ahora suma producto × cantidad **+ los
+  adicionales seleccionados** (antes solo contaba el producto base).
+- **Fix "Unexpected token '<'":** al renombrar `pickerGetAdicional()` quedaron llamadas
+  al nombre viejo (fatal PHP → HTML en vez de JSON). Corregido:
+  `pickerAdicionalOptions()` devuelve la lista en `adicionals`.
+- **Cache-buster por hash de contenido** (md5) en `picker.js`/`picker.css`
+  (`picker/index.php`), para no servir versiones intermedias cacheadas.
+- **Categorías legacy 2/3/4 eliminadas**; 4 productos viejos usados en documentos
+  (BARQ-110, BARQ-160, CEST-120, SUND-170) quedaron sin categoría (no aparecen en el POS).
+
+**Pendiente:** prueba funcional del popup en TakePOS.

@@ -66,7 +66,10 @@ En la pestaña de cada terminal elegí:
 
 - **Categoría de sabores mix** (`SABROOSKIPOS_CATEGORY_FLAVORS`)
 - **Categoría de sabores de bandejas** (`SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS`)
-- **Producto Adicional** (`SABROOSKIPOS_PRODUCT_ADICIONAL`)
+- **Categoría de toppings** (`SABROOSKIPOS_CATEGORY_TOPPINGS`) y **de siropes**
+  (`SABROOSKIPOS_CATEGORY_SYRUPS`): sus productos se ofrecen como **adicionales**.
+- **Categoría de adicionales** (`SABROOSKIPOS_CATEGORY_ADICIONAL`): ítems extra
+  (ej. golosinas) que también se ofrecen como adicionales.
 - **Categorías ocultas** (`SABROOSKIPOS_HIDDEN_CATEGORIES`, ej. la categoría "Adicional")
 
 En la pestaña global (**Configuración**) podés fijar el **IVA del catálogo**
@@ -92,7 +95,8 @@ El módulo **no trae datos de ejemplo**: lee la BD real de Dolibarr. Para que la
 - La **categoría raíz** del TakePOS configurada con sus categorías hijas (pestañas del popup).
 - Los **productos base** (con `tosell = 1`) en esas categorías.
 - Los productos de **sabor** (mix y bandejas) en sus respectivas categorías.
-- El **producto Adicional** (a precio plano) que se suma como línea aparte.
+- Los **adicionales** (topping/sirope u otros) en sus categorías; se ofrecen como
+  una lista seleccionable y se suman como líneas aparte a su propio precio.
 - Los **extrafields** de producto (se crean al activar el módulo).
 
 > **Carga automática:** el módulo incluye la página **Sabrooski POS → Cargar catálogo**
@@ -121,8 +125,8 @@ Si un producto no tiene estos valores, el módulo asume `1 sabor` y sin lista de
 
 1. En **TakePOS**, el botón **"Toma de orden"** aparece junto a Cliente/Descuento/etc.
 2. Se abre el popup con las **categorías** (pestañas) y el **grid de productos**.
-3. Al tocar un producto → **modal** con sabores (mix o bandejas), el **Adicional**
-   (a precio plano) y la cantidad.
+3. Al tocar un producto → **modal** con sabores (mix o bandejas), la **lista de
+   adicionales** (topping/sirope, cada uno con `+ / −`) y la cantidad.
 4. **"Agregar a la orden"** añade el producto (con su detalle como descripción de la
    línea: `Sabor: X · 172 g`) más una línea por cada Adicional, y vuelve a la rejilla.
 5. A la derecha, el panel **"Orden actual"** muestra el resumen: líneas, artículos,

@@ -6,12 +6,12 @@
    1. Carga categorías reales de la BD (picker/api.php?action=getData).
    2. Cada pestaña = una categoría real; al tocarla lista sus productos.
    3. Al tocar un producto abre el modal: sabores (mix o bandejas, según el
-      grupo del producto) + stepper "Adicional" a precio plano.
+      grupo del producto) + lista de Adicionales seleccionables.
    4. Al confirmar, agrega la línea al ticket nativo de TakePOS
       (invoice.php addline / addnote) y cierra el popup.
 
    Usa el MISMO origen de datos que el grid nativo (método getObjectsInCateg).
-   Las listas de sabores y el producto Adicional se configuran por terminal en
+   Las listas de sabores y los adicionales se configuran por terminal en
    el Setup del módulo (constantes SABROOSKIPOS_*).
    ===================================================================== */
 (function () {
@@ -55,7 +55,7 @@
 	function fmtUsd(n) { return '$' + Number(n || 0).toFixed(2); }
 
 	/* ---------- cargar datos ----------
-	   Las categorías, las listas de sabores (mix/bandejas) y el Adicional vienen
+	   Las categorías, las listas de sabores (mix/bandejas) y los adicionales vienen
 	   de picker/api.php.
 	   Los PRODUCTOS se piden al endpoint NATIVO del TakePOS (takepos/ajax/ajax.php
 	   ?action=getProducts), el MISMO que pinta la rejilla nativa. Así mostramos
@@ -267,7 +267,7 @@
 					product: data.product,
 					flavors: data.flavors || [],
 					flavorsBandejas: data.flavors_bandejas || [],
-					adicional: data.adicional || null,
+					adicionals: data.adicionals || [],
 					selected: { flavors: [] },
 					extras: {},   // idproduct -> qty adicional
 					qty: 1
@@ -314,6 +314,13 @@
 
 		var extrasSection = renderExtras();
 
+		// Total del modal = producto × cantidad + adicionales seleccionados.
+		var extrasTotal = 0;
+		(current.adicionals || []).forEach(function (a) {
+			extrasTotal += (Number(a.price_ttc) || 0) * (current.extras[a.id] || 0);
+		});
+		var previewTotal = (Number(p.price_ttc) || 0) * current.qty + extrasTotal;
+
 		root.innerHTML =
 			'<div class="pk-panel pk-modal">' +
 			'<div class="pk-panel-head"><button type="button" class="pk-back" data-back>←</button>' +
@@ -325,7 +332,7 @@
 				'<button class="pk-btn-square" id="qtyMinus">−</button>' +
 				'<span class="pk-qty-val" id="qtyVal">' + current.qty + '</span>' +
 				'<button class="pk-btn-square" id="qtyPlus">+</button>' +
-				'<span class="pk-line-total" id="lineTotalPreview">' + fmtUsd((p.price_ttc || 0) * current.qty) + '</span>' +
+				'<span class="pk-line-total" id="lineTotalPreview">' + fmtUsd(previewTotal) + '</span>' +
 			'</div>' +
 			'<div class="pk-actions">' +
 				'<button type="button" class="pk-btn-finish" data-finish>Finalizar orden</button>' +
@@ -367,25 +374,29 @@
 		if (max > 0 && arr.length < max) { arr.push(val); }
 	}
 
-	// Un único stepper "Adicional" (producto a precio plano). Cada unidad se agrega
-	// como una línea de venta propia del producto Adicional configurado.
+	// Lista de adicionales seleccionables (cada uno con su propio precio). Cada
+	// unidad se agrega como una línea de venta propia del producto Adicional.
 	function renderExtras() {
-		if (!current || !current.adicional || !current.adicional.id) { return ''; }
-		var a = current.adicional;
-		var qty = current.extras[a.id] || 0;
-		var priceTxt = a.price_formated ? ' <span class="pk-count">+' + esc(a.price_formated) + '</span>' : '';
+		if (!current || !current.adicionals || !current.adicionals.length) { return ''; }
 
-		return '<div class="pk-section-label">Adicional' + priceTxt + '</div>' +
-			'<div class="pk-extras" id="extrasList">' +
-				'<div class="pk-extra-row">' +
-					'<span class="pk-extra-name">' + esc(a.label) + '</span>' +
-					'<div class="pk-extra-stepper">' +
-						'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-minus="' + a.id + '">−</button>' +
-						'<span class="pk-extra-qty">' + qty + '</span>' +
-						'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-plus="' + a.id + '">+</button>' +
-					'</div>' +
+		var html = '<div class="pk-section-label">Adicionales <span class="pk-count">se cobran aparte</span></div>' +
+			'<div class="pk-extras" id="extrasList">';
+
+		current.adicionals.forEach(function (a) {
+			var qty = current.extras[a.id] || 0;
+			var priceTxt = a.price_formated ? ' <span class="pk-count">+' + esc(a.price_formated) + '</span>' : '';
+			html += '<div class="pk-extra-row">' +
+				'<span class="pk-extra-name">' + esc(a.label) + priceTxt + '</span>' +
+				'<div class="pk-extra-stepper">' +
+					'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-minus="' + a.id + '">−</button>' +
+					'<span class="pk-extra-qty">' + qty + '</span>' +
+					'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-plus="' + a.id + '">+</button>' +
 				'</div>' +
 			'</div>';
+		});
+
+		html += '</div>';
+		return html;
 	}
 
 	function bindExtras() {

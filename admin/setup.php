@@ -120,6 +120,9 @@ if ($action == 'set' && $user->admin) {
 		$conststerm = array(
 			'SABROOSKIPOS_CATEGORY_FLAVORS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS', 'alpha'),
 			'SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS' => GETPOST('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_TOPPINGS' => GETPOST('SABROOSKIPOS_CATEGORY_TOPPINGS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_SYRUPS' => GETPOST('SABROOSKIPOS_CATEGORY_SYRUPS', 'alpha'),
+			'SABROOSKIPOS_CATEGORY_ADICIONAL' => GETPOST('SABROOSKIPOS_CATEGORY_ADICIONAL', 'alpha'),
 			'SABROOSKIPOS_PRODUCT_ADICIONAL' => GETPOST('SABROOSKIPOS_PRODUCT_ADICIONAL', 'alpha'),
 			'SABROOSKIPOS_HIDDEN_CATEGORIES' => GETPOST('SABROOSKIPOS_HIDDEN_CATEGORIES', 'alpha'),
 		);
@@ -277,9 +280,24 @@ if ($terminal == 0) {
 	print '</td></tr>';
 
 	print '<tr class="oddeven"><td>';
-	print $form->textwithpicto($langs->trans("SabrooskiProductAdicional"), $langs->trans("SabrooskiProductAdicionalDesc"));
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryToppings"), $langs->trans("SabrooskiCategoryToppingsDesc"));
 	print '</td><td>';
-	print $form->select_produits((int) sabrooskiposGetConst('SABROOSKIPOS_PRODUCT_ADICIONAL', $term), 'SABROOSKIPOS_PRODUCT_ADICIONAL', '', 0, 0, 1, 2, '', 0, array(), 0, '1', 0, 'maxwidth500 widthcentpercentminusx');
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term), 'SABROOSKIPOS_CATEGORY_TOPPINGS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_TOPPINGS');
+	print '</td></tr>';
+
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategorySyrups"), $langs->trans("SabrooskiCategorySyrupsDesc"));
+	print '</td><td>';
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term), 'SABROOSKIPOS_CATEGORY_SYRUPS', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_SYRUPS');
+	print '</td></tr>';
+
+	print '<tr class="oddeven"><td>';
+	print img_object('', 'category', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiCategoryAdicional"), $langs->trans("SabrooskiCategoryAdicionalDesc"));
+	print '</td><td>';
+	print $form->select_all_categories(Categorie::TYPE_PRODUCT, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_ADICIONAL', $term), 'SABROOSKIPOS_CATEGORY_ADICIONAL', 64, 0, 0, 0, 'maxwidth500 widthcentpercentminusx');
+	print ajax_combobox('SABROOSKIPOS_CATEGORY_ADICIONAL');
 	print '</td></tr>';
 
 	print '<tr class="oddeven"><td>';

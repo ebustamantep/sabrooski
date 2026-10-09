@@ -275,6 +275,7 @@ function sabrooskiposLoadCatalogo($db, $user, $jsonfile, &$report)
 	$defaults = array(
 		'SABROOSKIPOS_CATEGORY_FLAVORS' => $catmix,
 		'SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS' => $catbdj,
+		'SABROOSKIPOS_CATEGORY_ADICIONAL' => (isset($catsale['Adicional']) ? $catsale['Adicional'] : 0),
 	);
 	foreach ($defaults as $k => $v) {
 		if ((int) getDolGlobalInt($k) <= 0 && $v > 0) {
