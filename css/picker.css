@@ -187,6 +187,7 @@
 }
 .pk-btn-square.pk-btn-sm { width: 30px; height: 30px; font-size: 14px; border-radius: 8px; }
 .pk-qty-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.pk-qty-label { font-size: 13px; font-weight: 700; color: #6b5b95; }
 .pk-qty-val { font-family: 'Baloo 2', sans-serif; font-size: 20px; min-width: 24px; text-align: center; }
 .pk-line-total { margin-left: auto; font-weight: 800; color: #7c3aed; font-size: 16px; }
 .pk-actions { display: flex; gap: 10px; margin-top: 20px; }

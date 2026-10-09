@@ -329,6 +329,7 @@
 			'<div class="pk-sub">' + (p.description ? esc(p.description) + ' · ' : '') + esc(p.price_formated || '') + '</div>' +
 			flavorsSection + extrasSection +
 			'<div class="pk-qty-row">' +
+				'<span class="pk-qty-label">Cantidad</span>' +
 				'<button class="pk-btn-square" id="qtyMinus">−</button>' +
 				'<span class="pk-qty-val" id="qtyVal">' + current.qty + '</span>' +
 				'<button class="pk-btn-square" id="qtyPlus">+</button>' +
