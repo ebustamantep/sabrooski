@@ -384,9 +384,10 @@
 
 		current.adicionals.forEach(function (a) {
 			var qty = current.extras[a.id] || 0;
-			var priceTxt = a.price_formated ? ' <span class="pk-count">+' + esc(a.price_formated) + '</span>' : '';
+			var priceTxt = a.price_formated ? '<span class="pk-extra-price">+' + esc(a.price_formated) + '</span>' : '';
 			html += '<div class="pk-extra-row">' +
-				'<span class="pk-extra-name">' + esc(a.label) + priceTxt + '</span>' +
+				'<span class="pk-extra-name" title="' + esc(a.label) + '">' + esc(a.label) + '</span>' +
+				priceTxt +
 				'<div class="pk-extra-stepper">' +
 					'<button type="button" class="pk-btn-square pk-btn-sm" data-extra-minus="' + a.id + '">−</button>' +
 					'<span class="pk-extra-qty">' + qty + '</span>' +

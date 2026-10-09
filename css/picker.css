@@ -156,15 +156,28 @@
 .pk-chip.selected { background: #7c3aed; border-color: #7c3aed; color: #fff; }
 .pk-chip.disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* ---------- adicionales ---------- */
-.pk-extras { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
-.pk-extra-row {
-	display: flex; align-items: center; justify-content: space-between; gap: 10px;
-	border: 2px solid #e4defc; background: #fbfaff; border-radius: 12px; padding: 8px 10px;
+/* ---------- adicionales (dos columnas) ---------- */
+.pk-extras {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 2px;
 }
-.pk-extra-name { font-weight: 700; color: #5b21b6; font-size: 14px; }
-.pk-extra-stepper { display: flex; align-items: center; gap: 8px; }
+.pk-extra-row {
+	display: flex; align-items: center; gap: 8px;
+	border: 2px solid #e4defc; background: #fbfaff; border-radius: 12px; padding: 8px 10px;
+	min-width: 0;
+}
+.pk-extra-name {
+	font-weight: 700; color: #5b21b6; font-size: 13px;
+	flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pk-extra-price { flex: 0 0 auto; font-size: 11px; color: #a08fd6; white-space: nowrap; }
+.pk-extra-stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .pk-extra-qty { font-family: 'Baloo 2', sans-serif; font-size: 15px; min-width: 16px; text-align: center; }
+@media (max-width: 520px) {
+	.pk-extras { grid-template-columns: 1fr; }
+}
 
 /* ---------- botones ---------- */
 .pk-btn-square {

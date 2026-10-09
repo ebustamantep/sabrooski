@@ -251,6 +251,7 @@ Se ejecutó la carga real del catálogo y se corrigieron bugs encontrados:
     **Sirope** (`SABROOSKIPOS_CATEGORY_SYRUPS`) y **Adicional**
     (`SABROOSKIPOS_CATEGORY_ADICIONAL`). Hoy: 5 toppings + 4 siropes + 1 genérico = 10.
   - Se reincorporaron los campos Toppings/Sirope en el Setup por terminal.
+  - La lista se muestra en **dos columnas** (una sola en pantallas angostas ≤520px).
 - **Total del modal:** `lineTotalPreview` ahora suma producto × cantidad **+ los
   adicionales seleccionados** (antes solo contaba el producto base).
 - **Fix "Unexpected token '<'":** al renombrar `pickerGetAdicional()` quedaron llamadas
