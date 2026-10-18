@@ -379,6 +379,9 @@
 	// unidad se agrega como una línea de venta propia del producto Adicional.
 	function renderExtras() {
 		if (!current || !current.adicionals || !current.adicionals.length) { return ''; }
+		// Solo los servidos al momento (grupo mix) llevan adicionales; los
+		// empaquetados por sabor (bandejas, sundae congelado) y golosinas no.
+		if (current.grupo !== 'mix') { return ''; }
 
 		var html = '<div class="pk-section-label">Adicionales <span class="pk-count">se cobran aparte</span></div>' +
 			'<div class="pk-extras" id="extrasList">';

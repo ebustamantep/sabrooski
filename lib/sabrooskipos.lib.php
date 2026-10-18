@@ -61,11 +61,24 @@ function sabrooskiposEnsureExtrafields($db)
 	$optssel = array('options' => array('' => 'Ninguno', 'mix' => 'Mix (servidos)', 'bandejas' => 'Bandejas'));
 	$cond = 'isModEnabled("sabrooskipos")';
 
-	$extrafields->addExtraField('max_sabores', 'Máx. sabores', 'int', 100, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
-	$extrafields->addExtraField('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
-	$extrafields->addExtraField('max_sirope', 'Máx. sirope', 'int', 102, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
-	$extrafields->addExtraField('grupo_sabores', 'Grupo de sabores', 'select', 103, 0, 'product', 0, 0, '', $optssel, 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
-	$extrafields->addExtraField('gramos_porcion', 'Gramos por porción', 'varchar', 104, 16, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
+	// Solo se crean los que faltan: addExtraField() hace ALTER TABLE, y en MySQL eso
+	// confirma (commit implícito) cualquier transacción abierta.
+	$existing = $extrafields->fetch_name_optionals_label('product');
+	if (!is_array($existing)) {
+		$existing = array();
+	}
+	$defs = array(
+		array('max_sabores', 'Máx. sabores', 'int', 100, 3, ''),
+		array('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, ''),
+		array('max_sirope', 'Máx. sirope', 'int', 102, 3, ''),
+		array('grupo_sabores', 'Grupo de sabores', 'select', 103, 0, $optssel),
+		array('gramos_porcion', 'Gramos por porción', 'varchar', 104, 16, ''),
+	);
+	foreach ($defs as $d) {
+		if (!isset($existing[$d[0]])) {
+			$extrafields->addExtraField($d[0], $d[1], $d[2], $d[3], $d[4], 'product', 0, 0, '', $d[5], 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
+		}
+	}
 }
 
 /**
@@ -331,7 +344,7 @@ function sabrooskiposExportCatalogo($db)
 	// Productos ligados a alguna categoría de producto
 	$products = array();
 	$idxByRef = array();
-	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price_ttc, p.tosell, p.description";
+	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price_ttc, p.tva_tx, p.tosell, p.tobuy, p.stockable_product, p.description";
 	$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
 	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie_product as cp ON cp.fk_product = p.rowid";
 	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cp.fk_categorie AND c.type = ".((int) $typeProduct);
@@ -346,7 +359,10 @@ function sabrooskiposExportCatalogo($db)
 				'ref' => $ref,
 				'label' => (string) $obj->label,
 				'price_ttc' => (float) $obj->price_ttc,
+				'tva_tx' => (float) $obj->tva_tx,
 				'tosell' => (int) $obj->tosell,
+				'tobuy' => (int) $obj->tobuy,
+				'stockable_product' => (int) $obj->stockable_product,
 				'description' => (string) $obj->description,
 				'categories' => array(),
 				'extrafields' => array(),
@@ -458,8 +474,27 @@ function sabrooskiposExportCatalogo($db)
 	$rootid = (int) getDolGlobalInt('TAKEPOS_ROOT_CATEGORY_ID');
 	$root_category_label = ($rootid > 0 && isset($idToLabel[$rootid])) ? $idToLabel[$rootid] : '';
 
+	// Productos retirados del catálogo: los del prototipo y los reemplazados por los
+	// productos por sabor (ver test/adaptar_catalogo_planilla_cli.php), más los que
+	// quedaron fuera de venta y sin categoría.
+	$retired = array('PV-020', 'PV-022', 'SIR-CARA', 'SIR-VAIN', 'BARQ-110', 'BARQ-160', 'CEST-120', 'SUND-170',
+		'SAB-CHOC', 'SAB-VAIN', 'SAB-FRES', 'SAB-RONP', 'SAB-COCO', 'SAB-PARC', 'SAB-CAFE', 'SAB-CHIC');
+	$sql = "SELECT p.ref FROM ".MAIN_DB_PREFIX."product as p";
+	$sql .= " WHERE p.entity = ".$entity." AND p.tosell = 0 AND p.tobuy = 0";
+	$sql .= " AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."categorie_product as cp WHERE cp.fk_product = p.rowid)";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			if (!isset($idxByRef[$obj->ref]) && !in_array($obj->ref, $retired)) {
+				$retired[] = (string) $obj->ref;
+			}
+		}
+	}
+	$retired = array_values(array_diff($retired, array_keys($idxByRef)));
+
 	return array(
 		'generated_at' => dol_print_date(dol_now(), 'dayhourrfc'),
+		'retired_refs' => $retired,
 		'root_category_label' => $root_category_label,
 		'categories' => $categories,
 		'products' => $products,
@@ -609,8 +644,9 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 			}
 		}
 
+		$ptva = (isset($p['tva_tx']) ? (float) $p['tva_tx'] : $tva);
 		$opts = array(
-			'tva_tx' => $tva,
+			'tva_tx' => $ptva,
 			'tosell' => (isset($p['tosell']) ? (int) $p['tosell'] : 1),
 			'extrafields' => (isset($p['extrafields']) && is_array($p['extrafields'])) ? $p['extrafields'] : array(),
 		);
@@ -618,12 +654,37 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 		$pid = sabrooskiposEnsureProduct($db, $ref, $label, $price, (count($catids) ? $catids[0] : 0), $user, $report, $opts);
 		if ($pid > 0) {
 			$prodIdByRef[$ref] = $pid;
-			if (count($catids) > 1) { // asignar TODAS las categorías
-				$prod = new Product($db);
-				if ($prod->fetch($pid) > 0) {
-					$prod->setCategories($catids);
+			// Converger el producto existente con el origen: etiqueta, estado, precio,
+			// descripción, manejo de stock y categorías exactas.
+			$prod = new Product($db);
+			if ($prod->fetch($pid) > 0) {
+				$tosell = (isset($p['tosell']) ? (int) $p['tosell'] : 1);
+				$tobuy = (isset($p['tobuy']) ? (int) $p['tobuy'] : (int) $prod->status_buy);
+				$desc = (isset($p['description']) ? (string) $p['description'] : $prod->description);
+				if ($prod->label !== $label || (int) $prod->status != $tosell || (int) $prod->status_buy != $tobuy || $prod->description !== $desc) {
+					$prod->label = $label;
+					$prod->status = $tosell;
+					$prod->status_buy = $tobuy;
+					$prod->description = $desc;
+					$prod->update($prod->id, $user);
+					$report['notas'][] = 'actualizado: '.$ref;
 				}
+				if (abs((float) $prod->price_ttc - $price) > 0.0001 || abs((float) $prod->tva_tx - $ptva) > 0.0001) {
+					$prod->updatePrice($price, 'TTC', $user, $ptva);
+					$report['notas'][] = 'precio: '.$ref.' = '.$price;
+				}
+				if (isset($p['stockable_product'])) {
+					$db->query("UPDATE ".MAIN_DB_PREFIX."product SET stockable_product = ".((int) $p['stockable_product'])." WHERE rowid = ".((int) $pid));
+				}
+				$prod->setCategories($catids);
 			}
+		}
+	}
+
+	// 3b) Productos retirados en el origen
+	if (!empty($data['retired_refs']) && is_array($data['retired_refs'])) {
+		foreach ($data['retired_refs'] as $ref) {
+			sabrooskiposRetireProduct($db, $user, (string) $ref, $report);
 		}
 	}
 
@@ -675,6 +736,39 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 }
 
 /**
+ * Retira un producto: lo borra si no se usa en documentos; si se usa, lo deja fuera
+ * de venta/compra y sin categorías.
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @param string $ref
+ * @param array  $report  Reporte (por referencia)
+ * @return void
+ */
+function sabrooskiposRetireProduct($db, $user, $ref, &$report)
+{
+	$p = new Product($db);
+	if ($p->fetch(0, $ref) <= 0) {
+		return;
+	}
+	if (!$p->isObjectUsed($p->id)) {
+		$db->query("DELETE FROM ".MAIN_DB_PREFIX."product_stock WHERE fk_product = ".((int) $p->id));
+		$db->query("DELETE FROM ".MAIN_DB_PREFIX."stock_mouvement WHERE fk_product = ".((int) $p->id));
+		if ($p->delete($user) > 0) {
+			$report['notas'][] = 'borrado: '.$ref;
+			return;
+		}
+	}
+	if ($p->status || $p->status_buy) {
+		$p->status = 0;
+		$p->status_buy = 0;
+		$p->update($p->id, $user);
+		$report['notas'][] = 'desactivado (usado en documentos): '.$ref;
+	}
+	$p->setCategories(array());
+}
+
+/**
  * Prepare admin pages header
  *
  * @return array<array{string,string,string}>
@@ -700,6 +794,12 @@ function sabrooskiposAdminPrepareHead()
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/cargar_catalogo.php", 1));
 	$head[$h][1] = $langs->trans("SabrooskiPOSCargarCatalogo");
 	$head[$h][2] = 'catalogo';
+	$h++;
+
+	// TEMPORAL: migración local -> producción (catálogo + config + turnos).
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/migracion_import.php", 1));
+	$head[$h][1] = 'Migración';
+	$head[$h][2] = 'migracion';
 	$h++;
 
 	// Pestañas por terminal (como el TakePOS nativo). Cada punto de venta

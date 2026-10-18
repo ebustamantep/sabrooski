@@ -290,3 +290,66 @@ JSON*. En producción → `.../custom/sabrooskipos/admin/catalogo_import.php` �
 **Nota producción:** requiere Dolibarr + TakePOS instalados y el módulo **activado**
 (para crear extrafields/permisos). No viajan en el JSON: `TAKEPOS_NUM_TERMINALS`, almacenes,
 usuarios y datos de empresa; ajustarlos aparte.
+
+---
+
+## 13. Catálogo según planillas reales + réplica del turno 10/10/2026 (2026-10-18)
+
+Fuente: `Sabrooski_Planillas_10-10-2026.xlsx` (2do turno, Movil01PM, tasa Bs 900).
+Respaldo de la BD previo: `C:\laragon\www\sabrooski_backup\sabrooski_db_antes_turno_20261010.sql`.
+
+**`test/adaptar_catalogo_planilla_cli.php`** (idempotente):
+- Bandejas 500 g (`PV-020-01..14`) y Sundae congelado (`PV-022-01..07`) = **un producto por
+  sabor**, con stock propio; nuevas pestañas "Bandejas 500 g" y "Sundae congelado". Se
+  borraron los genéricos `PV-020` / `PV-022`.
+- Toppings (9) y siropes (4) reales a $0,25, IVA 16%, inventario en gramos.
+- Golosinas: Samba $1,00 (deducido del P/M de Bs 630 = $0,70 con 30% desc.); Flaquito,
+  Pingüinito y Coquito quedan **fuera de venta hasta tener precio**.
+- Insumos (categoría "Insumos", no se venden): domos, cucharillas, servilletas, mixes, etc.
+- Especiales domo y Adicional sin stock propio (`stockable_product = 0`).
+- Viejos: borrados SAB-* y siropes sin uso; BARQ/CEST/SUND desactivados (tienen facturas).
+- Config: `CASHDESK_ID_WAREHOUSE2` = Movil01PM; forma de pago **EFBS (Efectivo Bs)** →
+  cuenta Efectivo Bs (pasada a cuenta corriente: una cuenta caja solo acepta LIQ);
+  `TAKEPOS_DELAYED_PAYMENT = 1` (ventas a crédito/delivery).
+- Popup: los adicionales solo se ofrecen en productos `grupo_sabores = mix`.
+
+**`test/replicar_turno_20261010_cli.php`** (no repetible; restaurar respaldo para rehacer):
+57 tickets `TC2-2610-0001..0057` con fecha/hora del turno: 17 P/M (refs y Bs exactos),
+34 transacciones de punto de venta cuadradas por lote y crédito/débito, efectivo $5 y
+Bs 4.200, 4 delivery a crédito ($70, 14 bandejas + 40 conos a $0). Cada ticket guarda la
+tasa efectiva (Bs ÷ $). Stock de Movil01PM: existencia, reposición, regalía, dañadas y
+ajuste al cierre escrito → todos los productos cuadran con la planilla.
+
+---
+
+## 14. Migración completa a producción + ReportesVentas (v1.6, 2026-10-18)
+
+**Paquete de migración (temporal)** — `lib/sabrooskipos_migracion.lib.php`:
+- `admin/migracion_export.php` (local) → JSON con catálogo (ahora converge en destino:
+  etiqueta, precio, IVA, venta/compra, stock propio, categorías exactas y `retired_refs`),
+  configuración del POS y del popup por ref/label (almacenes y cuentas por terminal,
+  formas de pago, monedas, categorías del popup, incluida la config por terminal) y los
+  turnos del rango (tickets con líneas, pagos, movimientos bancarios y de stock, con hora).
+- `admin/migracion_import.php` (pestaña **Migración** del Setup) → **Simular** (todo dentro
+  de una transacción que se revierte, con chequeo de que nada quedó guardado) o
+  **Importar**. No duplica turnos. Botón **Reactivar módulo** que conserva permisos.
+- CLI: `test/migracion_paquete_cli.php export|import [--simular] [--db=bd]`,
+  `test/reactivar_modulo_cli.php`.
+- Probado contra `sabrooski_prodtest` (clon del respaldo previo): bancos por cuenta/lote,
+  horas, tickets, stock de Movil01PM y catálogo idénticos a local.
+- Aprendizajes: `addExtraField()` hace ALTER TABLE (commit implícito en MySQL) → ahora
+  solo se llama si falta el campo. `llx_facture.date_valid` es DATE (sin hora): la hora
+  del ticket está en `datec`. `Categorie::TYPE_PRODUCT` vale `'product'`, en SQL usar `0`.
+  `activateModule()` justo después de `unActivateModule()` necesita `$noconfverification=1`.
+  Desactivar el módulo borra los permisos asignados (el runner los guarda y restaura).
+
+**ReportesVentas** (menú superior; permiso `sabrooskipos->reportes->read`) —
+`reportes/index.php` + `lib/sabrooskipos_reportes.lib.php`. Por fecha + terminal:
+Camión congelados (por sabor, con conos "+N conos"), Pago móvil y puntos (lotes y
+crédito/débito desde "Lote X · Tipo"), Especificaciones de ventas (+ resumen de cierre y
+ventas a crédito), Inventario de ventas. Excel (.xlsx) por reporte o las 4 planillas.
+Reglas de stock por etiqueta del movimiento: "Existencia inicial…", "Reposición/entradas",
+"Regal…", "Dañad…", "Crédito…", "Ajuste…". Para el 10/10 cuadra con la planilla en papel.
+
+Entregables: `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.6.zip` y
+`sabrooskipos_paquete_20261010.json`.

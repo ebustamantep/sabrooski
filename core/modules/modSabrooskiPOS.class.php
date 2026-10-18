@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.5';
+		$this->version = '1.6';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -317,14 +317,53 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->rights[$r][4] = 'use';
 		$this->rights[$r][5] = 'use'; // In php code, permission will be checked by test if ($user->hasRight('sabrooskipos', 'use', 'use'))
 		$r++;
+		$o = 2;
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 1);
+		$this->rights[$r][1] = 'Ver ReportesVentas (planillas del turno)';
+		$this->rights[$r][3] = 1; // Activo por defecto
+		$this->rights[$r][4] = 'reportes';
+		$this->rights[$r][5] = 'read'; // $user->hasRight('sabrooskipos', 'reportes', 'read')
+		$r++;
 		/* END MODULEBUILDER PERMISSIONS */
 
 
 		// Main menu entries to add
 		$this->menu = array();
 		$r = 0;
-		// No se agregan menús: la entrada al POS es el botón "Toma de orden"
-		// dentro del TakePOS nativo (hook ActionButtons), no una pantalla propia.
+		// La entrada al POS es el botón "Toma de orden" dentro del TakePOS nativo
+		// (hook ActionButtons). El único menú propio es ReportesVentas.
+		$perm = '$user->admin || $user->hasRight("sabrooskipos", "reportes", "read")';
+		$this->menu[$r++] = array(
+			'fk_menu' => '',
+			'type' => 'top',
+			'titre' => 'ReportesVentas',
+			'prefix' => img_picto('', 'bill', 'class="pictofixedwidth valignmiddle"'),
+			'mainmenu' => 'reportesventas',
+			'leftmenu' => '',
+			'url' => '/sabrooskipos/reportes/index.php',
+			'langs' => 'sabrooskipos@sabrooskipos',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("sabrooskipos")',
+			'perms' => $perm,
+			'target' => '',
+			'user' => 2,
+		);
+		foreach (array('camion' => 'Camión congelados', 'pagomovil' => 'Pago móvil y puntos', 'especificaciones' => 'Especificaciones de ventas', 'inventario' => 'Inventario de ventas') as $code => $label) {
+			$this->menu[$r++] = array(
+				'fk_menu' => 'fk_mainmenu=reportesventas',
+				'type' => 'left',
+				'titre' => $label,
+				'mainmenu' => 'reportesventas',
+				'leftmenu' => 'reportesventas_'.$code,
+				'url' => '/sabrooskipos/reportes/index.php?reporte='.$code,
+				'langs' => 'sabrooskipos@sabrooskipos',
+				'position' => 1000 + $r,
+				'enabled' => 'isModEnabled("sabrooskipos")',
+				'perms' => $perm,
+				'target' => '',
+				'user' => 2,
+			);
+		}
 
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
 		/*
