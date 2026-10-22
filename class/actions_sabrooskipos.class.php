@@ -15,8 +15,10 @@
  * Se engancha al contexto 'takeposfrontend' (declarado en el descriptor del módulo):
  *   - ActionButtons   → agrega el botón "Toma de orden" a la barra de acciones.
  *   - addHtmlHeader   → inyecta el JS que abre el popup y su CSS.
+ *   - TakeposReceipt  → en el recibo, suma el detalle de cada línea al nombre del
+ *                       producto: "Barquilla (Chocolate, Fresa) 1 Topping 1 Sirope".
  *
- * No reemplaza nada de TakePOS: solo agrega un botón y un popup.
+ * No reemplaza nada de TakePOS: solo agrega un botón, un popup y el detalle del recibo.
  */
 class ActionsSabrooskipos
 {
@@ -98,6 +100,41 @@ class ActionsSabrooskipos
 		}
 		</script>
 		<link rel="stylesheet" type="text/css" href="'.DOL_URL_ROOT.'/custom/sabrooskipos/css/picker.css">';
+
+		return 0;
+	}
+
+	/**
+	 * Hook TakeposReceipt (takepos/receipt.php, antes de pintar el recibo).
+	 * El recibo nativo solo imprime el nombre del producto de cada línea; aquí se le
+	 * agrega el detalle anotado desde el popup (sabores, topping/sirope, "para X"),
+	 * solo en memoria. No imprime nada: el recibo nativo sigue pintándose igual.
+	 *
+	 * @param array        $parameters   Parámetros del hook
+	 * @param Facture      $object       Factura del recibo
+	 * @param string       $action       Acción en curso
+	 * @param HookManager  $hookmanager  Gestor de hooks
+	 * @return int 0 = OK
+	 */
+	public function TakeposReceipt($parameters, &$object, &$action, $hookmanager)
+	{
+		if (empty($parameters['currentcontext']) || $parameters['currentcontext'] != 'takeposfrontend') {
+			return 0;
+		}
+		if (empty($object->lines) || !is_array($object->lines)) {
+			return 0;
+		}
+
+		require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos.lib.php';
+		foreach ($object->lines as $line) {
+			if (empty($line->product_label)) {
+				continue; // línea libre: el recibo ya imprime su descripción
+			}
+			$detalle = sabrooskiposDetalleRecibo((string) $line->desc, (string) $line->product_desc);
+			if ($detalle !== '') {
+				$line->product_label .= ' '.dol_escape_htmltag($detalle);
+			}
+		}
 
 		return 0;
 	}

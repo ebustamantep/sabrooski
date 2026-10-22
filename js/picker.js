@@ -6,7 +6,8 @@
    1. Carga categorías reales de la BD (picker/api.php?action=getData).
    2. Cada pestaña = una categoría real; al tocarla lista sus productos.
    3. Al tocar un producto abre el modal: sabores (mix o bandejas, según el
-      grupo del producto) + lista de Adicionales seleccionables.
+      grupo del producto) + cantidad de Topping y de Sirope (genéricos: el
+      cliente elige cuál en la barra).
    4. Al confirmar, agrega la línea al ticket nativo de TakePOS
       (invoice.php addline / addnote) y cierra el popup.
 
@@ -375,15 +376,16 @@
 		if (max > 0 && arr.length < max) { arr.push(val); }
 	}
 
-	// Lista de adicionales seleccionables (cada uno con su propio precio). Cada
-	// unidad se agrega como una línea de venta propia del producto Adicional.
+	// Filas de adicionales genéricos (Topping, Sirope) con su cantidad. El cliente
+	// elige el topping/sirope concreto en la barra; aquí solo se cobra la cantidad,
+	// como una línea de venta aparte por cada adicional.
 	function renderExtras() {
 		if (!current || !current.adicionals || !current.adicionals.length) { return ''; }
 		// Solo los servidos al momento (grupo mix) llevan adicionales; los
 		// empaquetados por sabor (bandejas, sundae congelado) y golosinas no.
 		if (current.grupo !== 'mix') { return ''; }
 
-		var html = '<div class="pk-section-label">Adicionales <span class="pk-count">se cobran aparte</span></div>' +
+		var html = '<div class="pk-section-label">Topping y sirope <span class="pk-count">el cliente elige en la barra</span></div>' +
 			'<div class="pk-extras" id="extrasList">';
 
 		current.adicionals.forEach(function (a) {
@@ -423,12 +425,22 @@
 		});
 	}
 
+	// Detalle de la línea, tal como sale en el recibo junto al producto:
+	// "Barquilla (Chocolate, Fresa) 1 Topping 1 Sirope".
 	function construirDescripcion() {
 		var partes = [];
-		if (current.selected.flavors.length) partes.push('Sabor: ' + current.selected.flavors.join(', '));
-		var g = (current.product.gramos_porcion || '').toString().trim();
-		if (g !== '') partes.push(/g\s*$/i.test(g) ? g : g + ' g');
-		return partes.join(' · ');
+		if (current.selected.flavors.length) { partes.push('(' + current.selected.flavors.join(', ') + ')'); }
+		extrasElegidos().forEach(function (ex) { partes.push(ex.qty + ' ' + ex.label); });
+		return partes.join(' ');
+	}
+
+	function extrasElegidos() {
+		var res = [];
+		(current.adicionals || []).forEach(function (a) {
+			var qty = current.extras[a.id] || 0;
+			if (qty > 0) { res.push({ id: parseInt(a.id, 10), qty: qty, label: a.label }); }
+		});
+		return res;
 	}
 
 	/* ---------- agregar a la venta de TakePOS ---------- */
@@ -479,11 +491,7 @@
 		root.innerHTML = '<div class="pk-loading">Agregando a la orden…</div>';
 
 		var desc = construirDescripcion();
-		var extras = [];
-		Object.keys(current.extras).forEach(function (id) {
-			var qty = current.extras[id];
-			if (qty > 0) { extras.push({ id: parseInt(id, 10), qty: qty }); }
-		});
+		var extras = extrasElegidos();
 
 		agregarProducto(p.id, current.qty, invoiceid)
 			.then(function () {
@@ -499,8 +507,11 @@
 			})
 			.then(function () {
 				var chain = Promise.resolve();
+				// Cada adicional va en su línea, anotada con el producto al que acompaña.
 				extras.forEach(function (ex) {
-					chain = chain.then(function () { return agregarProducto(ex.id, ex.qty, invoiceid); });
+					chain = chain.then(function () { return agregarProducto(ex.id, ex.qty, invoiceid); })
+						.then(function () { return idDeUltimaLinea(invoiceid); })
+						.then(function (idLinea) { if (idLinea > 0) { return anotarDetalle(idLinea, 'para ' + p.label, invoiceid); } });
 				});
 				return chain;
 			})

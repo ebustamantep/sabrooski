@@ -353,3 +353,30 @@ Reglas de stock por etiqueta del movimiento: "Existencia inicial…", "Reposici�
 
 Entregables: `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.6.zip` y
 `sabrooskipos_paquete_20261010.json`.
+
+---
+
+## 15. Topping y Sirope genéricos + recibo explícito (v1.7, 2026-10-21)
+
+Respaldo previo de la BD: `C:\laragon\www\sabrooski_backup\sabrooski_db_antes_topping_generico.sql`.
+
+- **Popup:** la sección de adicionales muestra solo dos filas con cantidad, **Topping** y
+  **Sirope** (el cliente elige cuál en la barra). `pickerAdicionalOptions()` lee solo la
+  categoría Adicional, productos en venta, ordenados por ref.
+- **Catálogo** (`test/adaptar_catalogo_planilla_cli.php`, re-ejecutado; idempotente):
+  `PV-031 Topping` y `PV-032 Sirope` a $0,25, IVA 16%, categoría Adicional, sin stock propio.
+  Los 9 toppings y 4 siropes reales pasan a `tosell = 0` (solo inventario en gramos; el
+  consumo sigue saliendo de la diferencia del turno). `PV-030 Adicional` fuera de venta
+  (conserva su categoría por las ventas del 10/10). Ojo: re-ejecutar `cargar_catalogo` lo
+  reactivaría.
+- **Detalle de la línea** (lo anota el popup): producto → `(Chocolate, Fresa) 1 Topping
+  1 Sirope`; cada línea de topping/sirope → `para Barquilla`. Ya no se anotan los gramos.
+- **Recibo:** el `receipt.php` nativo solo imprime el nombre del producto, así que el hook
+  `TakeposReceipt` (`class/actions_sabrooskipos.class.php`) le suma en memoria el detalle
+  (`sabrooskiposDetalleRecibo()` en la lib; también convierte las líneas viejas
+  "Sabor: X · 82 g" a "(X)"). Resultado:
+  `Barquilla (Chocolate, Fresa) 1 Topping 1 Sirope` / `Topping para Barquilla` /
+  `Sirope para Barquilla`.
+- **Prueba:** `test/recibo_detalle_cli.php` (casos de formato, adicionales del popup y una
+  factura de prueba revertida pasando por el hookmanager) → Todo OK.
+

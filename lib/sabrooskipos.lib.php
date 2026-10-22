@@ -851,3 +851,38 @@ function sabrooskiposAdminPrepareHead()
 
 	return $head;
 }
+
+/**
+ * Detalle de una línea de venta para el recibo, a partir de su descripción.
+ *
+ * El popup anota "(Chocolate, Fresa) 1 Topping 1 Sirope" en el producto y
+ * "para Barquilla" en las líneas de topping/sirope; se devuelve tal cual. Las líneas
+ * viejas ("Sabor: Chocolate · 82 g") se pasan al mismo formato: "(Chocolate)", sin los
+ * gramos. Si la descripción es la del producto (la que pone TakePOS por defecto), no
+ * hay detalle.
+ *
+ * @param string $desc        Descripción de la línea
+ * @param string $productDesc Descripción del producto
+ * @return string             Detalle en texto plano ('' si no hay)
+ */
+function sabrooskiposDetalleRecibo($desc, $productDesc = '')
+{
+	$desc = trim(dol_string_nohtmltag($desc));
+	if ($desc === '' || $desc === trim(dol_string_nohtmltag($productDesc))) {
+		return '';
+	}
+
+	$partes = array();
+	foreach (explode('·', $desc) as $parte) {
+		$parte = trim($parte);
+		if ($parte === '' || preg_match('/^\d+([.,]\d+)?\s*g$/i', $parte)) {
+			continue; // gramos por porción: informativo, no va en el recibo
+		}
+		if (preg_match('/^Sabor(es)?\s*:\s*(.+)$/iu', $parte, $m)) {
+			$parte = '('.trim($m[2]).')';
+		}
+		$partes[] = $parte;
+	}
+
+	return implode(' ', $partes);
+}

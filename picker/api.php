@@ -116,20 +116,20 @@ function pickerCategories($db)
 /**
  * Lista simple de productos (id, label) de una categoría. Para sabores/toppings/siropes.
  */
-function pickerSimpleProducts($db, $catid)
+function pickerSimpleProducts($db, $catid, $orderby = 'p.label, p.rowid')
 {
 	if (empty($catid)) {
 		return array();
 	}
 
 	$pre = MAIN_DB_PREFIX;
-	$sql = "SELECT DISTINCT p.rowid, p.label
+	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label
 	        FROM ".$pre."categorie_product cp
 	        JOIN ".$pre."product p ON p.rowid = cp.fk_product
 	        WHERE cp.fk_categorie = ".((int) $catid)."
 	        AND p.entity IN (".getEntity('product').")
 	        AND p.tosell = 1
-	        ORDER BY p.label, p.rowid";
+	        ORDER BY ".$orderby;
 	$resql = $db->query($sql);
 	if (!$resql) {
 		return array();
@@ -182,8 +182,11 @@ function pickerAdicionalItem($db, $term, $pid, $label = '')
 /**
  * Lista de adicionales seleccionables para el terminal.
  *
- * Reutiliza las categorías ya existentes: Toppings, Sirope y Adicional (más el
- * producto de respaldo SABROOSKIPOS_PRODUCT_ADICIONAL si al final no hay nada).
+ * Son los productos genéricos en venta de la categoría Adicional ("Topping" y
+ * "Sirope", en orden de ref): el cliente elige el topping/sirope concreto en la
+ * barra, así que el popup solo pide la cantidad. Los toppings y siropes reales
+ * (categorías Topping/Sirope) son inventario en gramos y no se venden. Si no hay
+ * ninguno se usa el producto de respaldo SABROOSKIPOS_PRODUCT_ADICIONAL.
  * Cada producto se suma como una línea aparte con su propio precio.
  *
  * @param DoliDB $db
@@ -193,29 +196,12 @@ function pickerAdicionalItem($db, $term, $pid, $label = '')
 function pickerAdicionalOptions($db, $term)
 {
 	$res = array();
-	$seen = array();
 
-	// Orden: Toppings, Sirope y (al final) la categoría Adicional genérica.
-	$catids = array(
-		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_TOPPINGS', $term),
-		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_SYRUPS', $term),
-		(int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_ADICIONAL', $term),
-	);
-
-	foreach ($catids as $catid) {
-		if ($catid <= 0) {
-			continue;
-		}
-		foreach (pickerSimpleProducts($db, $catid) as $p) {
-			$pid = (int) $p['id'];
-			if (isset($seen[$pid])) {
-				continue; // sin duplicados si un producto está en varias categorías
-			}
-			$seen[$pid] = true;
-			$item = pickerAdicionalItem($db, $term, $pid, (string) $p['label']);
-			if ($item) {
-				$res[] = $item;
-			}
+	$catid = (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_ADICIONAL', $term);
+	foreach (pickerSimpleProducts($db, $catid, 'p.ref, p.rowid') as $p) {
+		$item = pickerAdicionalItem($db, $term, (int) $p['id'], (string) $p['label']);
+		if ($item) {
+			$res[] = $item;
 		}
 	}
 

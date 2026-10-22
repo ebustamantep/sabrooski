@@ -1,5 +1,14 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.7
+
+- Popup: los adicionales son solo **Topping** y **Sirope** genéricos con su cantidad
+  ($0,25 c/u); el cliente elige el topping/sirope concreto en la barra.
+- Catálogo: genéricos `PV-031 Topping` y `PV-032 Sirope` (categoría Adicional, sin stock
+  propio). Los toppings/siropes reales y `PV-030 Adicional` quedan fuera de venta.
+- Recibo (hook `TakeposReceipt`): cada línea muestra su detalle junto al producto, p. ej.
+  "Barquilla (Chocolate, Fresa) 1 Topping 1 Sirope" y "Topping para Barquilla".
+
 ## 1.4
 
 - Reconstruida la toma de pedidos sobre el TakePOS **nativo**.
