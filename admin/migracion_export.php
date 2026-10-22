@@ -66,11 +66,16 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $datefrom) || !preg_match('/^\d{4}-\d{2
 	$datefrom = $dateto = '2026-10-10';
 }
 
-$data = sabrooskiposExportPaquete($db, $datefrom, $dateto);
+// Por defecto solo catálogo + configuración; los turnos se incluyen a pedido.
+$conTurnos = (GETPOSTINT('turnos') == 1);
+
+$data = sabrooskiposExportPaquete($db, $datefrom, $dateto, $conTurnos);
 
 if ($action == 'download') {
 	$json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-	$filename = 'sabrooskipos_paquete_'.str_replace('-', '', $datefrom).'_'.str_replace('-', '', $dateto).'.json';
+	$filename = $conTurnos
+		? 'sabrooskipos_paquete_'.str_replace('-', '', $datefrom).'_'.str_replace('-', '', $dateto).'.json'
+		: 'sabrooskipos_catalogo_config_'.dol_print_date(dol_now(), '%Y%m%d').'.json';
 	header('Content-Type: application/json; charset=utf-8');
 	header('Content-Disposition: attachment; filename="'.$filename.'"');
 	header('Content-Length: '.strlen($json));
@@ -82,14 +87,17 @@ $title = 'Exportar paquete de migración (temporal)';
 llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-sabrooskipos page-admin');
 print load_fiche_titre($title, '', 'title_setup');
 
-print '<div class="opacitymedium marginbottom">Genera un JSON con <b>todo</b>: catálogo (categorías, productos, precios, extrafields, retirados), '
-	.'configuración del POS y del popup (terminales, almacenes, cuentas, formas de pago, categorías del popup) y los <b>turnos</b> del rango '
-	.'(tickets con líneas, pagos, movimientos bancarios y de stock, con su fecha y hora). Se importa en producción con <b>migracion_import.php</b>.</div>';
+print '<div class="opacitymedium marginbottom">Genera un JSON con el catálogo (categorías, productos, precios, extrafields, retirados) y la '
+	.'configuración del POS y del popup (terminales, almacenes, cuentas, formas de pago, categorías del popup). Opcionalmente agrega los '
+	.'<b>turnos</b> del rango (tickets con líneas, pagos, movimientos bancarios y de stock, con su fecha y hora). Se importa en producción con '
+	.'<b>migracion_import.php</b>.</div>';
 
 print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'">';
 print '<table class="noborder centpercent">';
-print '<tr class="liste_titre"><td colspan="2">Rango de turnos</td></tr>';
-print '<tr class="oddeven"><td class="titlefield">Desde</td><td><input type="date" name="datefrom" value="'.dol_escape_htmltag($datefrom).'"></td></tr>';
+print '<tr class="liste_titre"><td colspan="2">Turnos</td></tr>';
+print '<tr class="oddeven"><td class="titlefield">Incluir turnos</td><td><input type="checkbox" name="turnos" value="1"'.($conTurnos ? ' checked' : '').'> '
+	.'<span class="opacitymedium">sin marcar = solo productos, categorías y configuración</span></td></tr>';
+print '<tr class="oddeven"><td>Desde</td><td><input type="date" name="datefrom" value="'.dol_escape_htmltag($datefrom).'"></td></tr>';
 print '<tr class="oddeven"><td>Hasta</td><td><input type="date" name="dateto" value="'.dol_escape_htmltag($dateto).'"> <input type="submit" class="button smallpaddingimp" value="Actualizar"></td></tr>';
 print '</table></form><br>';
 
@@ -110,12 +118,14 @@ foreach ($data['turnos'] as $t) {
 	print '<tr class="oddeven"><td>Turno '.dol_escape_htmltag($t['fecha']).' · terminal '.dol_escape_htmltag($t['terminal']).'</td><td class="right">'
 		.count($t['tickets']).' tickets ('.price($tot, 0, $langs, 1, -1, -1, $conf->currency).'), '.$np.' pagos, '.count($t['stock']).' mov. de stock</td></tr>';
 }
-if (!count($data['turnos'])) {
+if (!$conTurnos) {
+	print '<tr class="oddeven"><td colspan="2" class="opacitymedium">Sin turnos: no se exportan tickets, pagos ni movimientos de stock.</td></tr>';
+} elseif (!count($data['turnos'])) {
 	print '<tr class="oddeven"><td colspan="2" class="opacitymedium">No hay tickets TakePOS validados en el rango.</td></tr>';
 }
 print '</table><br>';
 
-print '<div class="center"><a class="button" href="'.$_SERVER["PHP_SELF"].'?action=download&datefrom='.urlencode($datefrom).'&dateto='.urlencode($dateto).'">Descargar paquete JSON</a></div>';
+print '<div class="center"><a class="button" href="'.$_SERVER["PHP_SELF"].'?action=download&datefrom='.urlencode($datefrom).'&dateto='.urlencode($dateto).($conTurnos ? '&turnos=1' : '').'">Descargar paquete JSON</a></div>';
 print '<br><div class="opacitymedium">Archivo temporal de migración. Eliminá estas páginas cuando termines las pruebas.</div>';
 
 llxFooter();

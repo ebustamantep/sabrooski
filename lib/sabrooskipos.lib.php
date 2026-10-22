@@ -476,9 +476,10 @@ function sabrooskiposExportCatalogo($db)
 
 	// Productos retirados del catálogo: los del prototipo y los reemplazados por los
 	// productos por sabor (ver test/adaptar_catalogo_planilla_cli.php), más los que
-	// quedaron fuera de venta y sin categoría.
+	// quedaron fuera de venta y sin categoría. PV-030 Adicional lo reemplazan los genéricos
+	// Topping (PV-031) y Sirope (PV-032). Ninguno de estos viaja como producto.
 	$retired = array('PV-020', 'PV-022', 'SIR-CARA', 'SIR-VAIN', 'BARQ-110', 'BARQ-160', 'CEST-120', 'SUND-170',
-		'SAB-CHOC', 'SAB-VAIN', 'SAB-FRES', 'SAB-RONP', 'SAB-COCO', 'SAB-PARC', 'SAB-CAFE', 'SAB-CHIC');
+		'SAB-CHOC', 'SAB-VAIN', 'SAB-FRES', 'SAB-RONP', 'SAB-COCO', 'SAB-PARC', 'SAB-CAFE', 'SAB-CHIC', 'PV-030');
 	$sql = "SELECT p.ref FROM ".MAIN_DB_PREFIX."product as p";
 	$sql .= " WHERE p.entity = ".$entity." AND p.tosell = 0 AND p.tobuy = 0";
 	$sql .= " AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."categorie_product as cp WHERE cp.fk_product = p.rowid)";
@@ -490,7 +491,9 @@ function sabrooskiposExportCatalogo($db)
 			}
 		}
 	}
-	$retired = array_values(array_diff($retired, array_keys($idxByRef)));
+	$products = array_values(array_filter($products, function ($p) use ($retired) {
+		return !in_array($p['ref'], $retired);
+	}));
 
 	return array(
 		'generated_at' => dol_print_date(dol_now(), 'dayhourrfc'),

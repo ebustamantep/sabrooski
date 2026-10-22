@@ -28,14 +28,15 @@ require_once DOL_DOCUMENT_ROOT.'/multicurrency/class/multicurrency.class.php';
 require_once __DIR__.'/sabrooskipos.lib.php';
 
 /**
- * Genera el paquete completo.
+ * Genera el paquete completo, o solo catálogo + configuración si $conTurnos es false.
  *
  * @param DoliDB $db
- * @param string $datefrom  'YYYY-MM-DD'
- * @param string $dateto    'YYYY-MM-DD'
+ * @param string $datefrom   'YYYY-MM-DD'
+ * @param string $dateto     'YYYY-MM-DD'
+ * @param bool   $conTurnos  false = sin tickets/pagos/stock (solo productos, categorías y config)
  * @return array
  */
-function sabrooskiposExportPaquete($db, $datefrom, $dateto)
+function sabrooskiposExportPaquete($db, $datefrom, $dateto, $conTurnos = true)
 {
 	return array(
 		'tipo' => 'sabrooskipos-paquete',
@@ -43,7 +44,7 @@ function sabrooskiposExportPaquete($db, $datefrom, $dateto)
 		'generated_at' => dol_print_date(dol_now(), 'dayhourrfc'),
 		'catalogo' => sabrooskiposExportCatalogo($db),
 		'config' => sabrooskiposExportConfig($db),
-		'turnos' => sabrooskiposExportTurnos($db, $datefrom, $dateto),
+		'turnos' => ($conTurnos ? sabrooskiposExportTurnos($db, $datefrom, $dateto) : array()),
 	);
 }
 

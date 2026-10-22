@@ -380,3 +380,35 @@ Respaldo previo de la BD: `C:\laragon\www\sabrooski_backup\sabrooski_db_antes_to
 - **Prueba:** `test/recibo_detalle_cli.php` (casos de formato, adicionales del popup y una
   factura de prueba revertida pasando por el hookmanager) → Todo OK.
 
+---
+
+## 16. Depuración del catálogo + exportación sin turnos (2026-10-21)
+
+Respaldo previo de la BD: `C:\laragon\www\sabrooski_backup\sabrooski_db_antes_depurar_productos.sql`.
+El turno 10/10 se deja como está (el usuario borró a mano los tickets 0046..0057; quedan
+15 movimientos de stock de esos tickets, sin factura).
+
+**`test/depurar_productos_cli.php [--simular]`** (idempotente; el turno TC2-2610 no se toca):
+- Borra los 5 tickets del prototipo `TC1-2609-*` con líneas, pagos, líneas de banco (CASH-POS),
+  vínculos, PDFs y sus movimientos de stock, y el traslado de prueba TS-20260905-0001.
+  El stock por almacén se corrige restando el efecto de cada movimiento borrado.
+- Borra BARQ-110, BARQ-160, CEST-120 y SUND-170.
+- Sabores SM-*/SB-* sin control de stock; toppings/siropes reales a $0 (solo insumos).
+- **Ejecutado** en local: 5 tickets, 5 pagos/líneas de banco, 12 movimientos + traslado,
+  4 productos borrados, 33 ajustes. Turno 10/10 intacto (45 tickets), sin existencias negativas.
+- JSON definitivo: `C:\laragon\www\sabrooski_deploy\sabrooskipos_catalogo_config_20261021.json`
+  (84 productos, 22 constantes, 0 turnos; simulado contra `sabrooski_prodtest` sin errores).
+
+**Exportación solo catálogo + configuración:**
+- `sabrooskiposExportPaquete(..., $conTurnos = true)`; en `admin/migracion_export.php`
+  la casilla **Incluir turnos** viene desmarcada (archivo `sabrooskipos_catalogo_config_AAAAMMDD.json`);
+  CLI: `test/migracion_paquete_cli.php export <archivo> --sin-turnos`.
+- Los productos de `retired_refs` ya no viajan como producto, solo como "a retirar"; se agregó
+  `PV-030 Adicional`. `SABROOSKIPOS_PRODUCT_ADICIONAL` pasa a PV-031 Topping.
+- Simulado contra `sabrooski_prodtest`: 2 productos creados (PV-031/032), 13 toppings/siropes
+  actualizados, PV-030 desactivado (y sin categorías), 22 constantes, 0 tickets, 0 errores.
+
+**Despliegue:** `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.7.zip` (48 archivos, sin
+planillas, capturas, zips ni .git). Orden en producción: instalar el zip → importar el JSON de
+catálogo + configuración en Setup → Sabrooski POS → Migración (primero **Simular**).
+
