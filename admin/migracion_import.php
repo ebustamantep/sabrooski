@@ -92,6 +92,8 @@ if (($action == 'simular' || $action == 'importar') && $user->admin) {
 		setEventMessages('Subí el archivo JSON del paquete.', null, 'errors');
 	} else {
 		$report = array('errores' => array(), 'notas' => array(), 'config' => array(), 'tickets' => array());
+		// Extrafields antes de la transacción (ALTER TABLE = commit implícito en MySQL).
+		sabrooskiposImportExtrafields($db, (isset($data['catalogo']) && is_array($data['catalogo'])) ? $data['catalogo'] : array(), $report);
 		$antes = sabrooskiposSnapshot($db);
 		$db->begin();
 		$res = sabrooskiposImportPaquete($db, $user, $data, $report);

@@ -480,6 +480,11 @@
 		return fetch(BASE + '/takepos/invoice.php', { method: 'POST', body: body, credentials: 'same-origin' });
 	}
 
+	function guardarSabores(idLinea, saborIds) {
+		return fetch(API + '?action=setLineSabores&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE) +
+			'&lineid=' + encodeURIComponent(idLinea) + '&sabores=' + encodeURIComponent(saborIds), { credentials: 'same-origin' });
+	}
+
 	function confirmAddProduct(shouldClose) {
 		var p = current.product;
 		if (activeFlavors().length > 0 && current.selected.flavors.length === 0) {
@@ -492,6 +497,11 @@
 
 		var desc = construirDescripcion();
 		var extras = extrasElegidos();
+		// Ids de los sabores de la máquina (solo servidos): el trigger de recetas descuenta
+		// el mix de cada sabor al validar el ticket.
+		var saborIds = (current.grupo === 'mix') ? activeFlavors().filter(function (f) {
+			return current.selected.flavors.indexOf(f.label) !== -1;
+		}).map(function (f) { return f.id; }).join(',') : '';
 
 		agregarProducto(p.id, current.qty, invoiceid)
 			.then(function () {
@@ -499,9 +509,11 @@
 			})
 			.then(function (ctx) {
 				invoiceid = ctx.realId || invoiceid;
-				if (desc && invoiceid) {
+				if ((desc || saborIds) && invoiceid) {
 					return idDeUltimaLinea(invoiceid).then(function (idLinea) {
-						if (idLinea > 0) { return anotarDetalle(idLinea, desc, invoiceid); }
+						if (idLinea <= 0) { return; }
+						return (desc ? anotarDetalle(idLinea, desc, invoiceid) : Promise.resolve())
+							.then(function () { if (saborIds) { return guardarSabores(idLinea, saborIds); } });
 					});
 				}
 			})

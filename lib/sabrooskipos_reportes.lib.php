@@ -100,12 +100,12 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 
 	if ($ids) {
 		// Líneas de venta.
-		$sql = "SELECT d.fk_facture, d.fk_product, d.description, d.qty, d.remise_percent, d.total_ttc, p.ref, p.label";
+		$sql = "SELECT d.rowid, d.fk_facture, d.fk_product, d.description, d.qty, d.remise_percent, d.total_ttc, d.total_ht, p.ref, p.label";
 		$sql .= " FROM ".MAIN_DB_PREFIX."facturedet d LEFT JOIN ".MAIN_DB_PREFIX."product p ON p.rowid = d.fk_product";
 		$sql .= " WHERE d.fk_facture IN (".implode(',', $ids).") ORDER BY d.fk_facture, d.rang, d.rowid";
 		$resql = $db->query($sql);
 		while ($resql && ($o = $db->fetch_object($resql))) {
-			$data['lineas'][] = array('fk_facture' => (int) $o->fk_facture, 'fk_product' => (int) $o->fk_product, 'ref' => (string) $o->ref,
+			$data['lineas'][] = array('rowid' => (int) $o->rowid, 'total_ht' => (float) $o->total_ht, 'fk_facture' => (int) $o->fk_facture, 'fk_product' => (int) $o->fk_product, 'ref' => (string) $o->ref,
 				'label' => (string) $o->label, 'desc' => (string) $o->description, 'qty' => (float) $o->qty,
 				'remise' => (float) $o->remise_percent, 'total' => (float) $o->total_ttc,
 				'credito' => $data['tickets'][(int) $o->fk_facture]['credito']);
@@ -717,4 +717,187 @@ function sabrooskiposReporteExcel($reportes, $enc, $filename)
 	header('Cache-Control: max-age=0');
 	$writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book);
 	$writer->save('php://output');
+}
+
+/**
+ * Planilla "Insumos del móvil": por insumo, existencia + carga − cierre contado = consumo
+ * real, contra el consumo teórico de las ventas (recetas). Siropes, toppings y
+ * pirulín/oreo se controlan en total (el cliente elige el tipo en la barra).
+ *
+ * @param array $data
+ * @return array
+ */
+function sabrooskiposReporteInsumos($data)
+{
+	global $db;
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+	$pre = MAIN_DB_PREFIX;
+	$wh = (int) $data['almacen'];
+
+	// Consumo teórico por insumo y totales de conteo (sirope, topping, pirulín/oreo).
+	$sabores = array();
+	foreach (array_unique(array_map(function ($l) {
+		return $l['fk_facture'];
+	}, $data['lineas'])) as $fid) {
+		$sabores += sabrooskiposSaboresFactura($db, $fid);
+	}
+	$teo = array();
+	$teoSirope = 0;
+	$teoTopping = 0;
+	$teoPiru = 0;
+	$mixSinSabor = 0;
+	foreach ($data['lineas'] as $l) {
+		if ($l['fk_product'] <= 0) {
+			continue;
+		}
+		$s = isset($sabores[$l['rowid']]) ? $sabores[$l['rowid']] : '';
+		$c = sabrooskiposConsumoLinea($db, $l['fk_product'], $l['qty'], $s);
+		foreach ($c['insumos'] as $pid => $q) {
+			$teo[$pid] = (isset($teo[$pid]) ? $teo[$pid] : 0) + $q;
+		}
+		$teoSirope += $c['sirope_g'];
+		$teoTopping += $c['topping_g'];
+		$teoPiru += $c['pirulin_oreo'];
+		$r = sabrooskiposReceta($db, $l['fk_product']);
+		if ($r['mix_g'] > 0 && $s === '') {
+			$mixSinSabor += $r['mix_g'] * $l['qty'];
+		}
+	}
+
+	// Descontado por las ventas (movimientos con origen factura) en el día.
+	$ventasMov = array();
+	if ($wh > 0) {
+		$resql = $db->query("SELECT fk_product, SUM(value) AS v FROM ".$pre."stock_mouvement WHERE fk_entrepot = ".$wh." AND origintype = 'facture'"
+			." AND datem BETWEEN '".$db->escape($data['fecha'])." 00:00:00' AND '".$db->escape($data['fecha'])." 23:59:59' GROUP BY fk_product");
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			$ventasMov[(int) $o->fk_product] = -(float) $o->v;
+		}
+	}
+
+	$datos = sabrooskiposRecetasLeer();
+	$grupos = $datos ? sabrooskiposCargaGrupos($db, $datos) : array();
+	$cols = array(array('Insumo', 'text'), array('Unidad', 'text'), array('Existencia', 'num'), array('Carga', 'num'), array('Total', 'num'),
+		array('Regalías y dañadas', 'num'), array('Cierre', 'num'), array('Consumo real', 'num'), array('Descontado por ventas', 'num'),
+		array('Consumo teórico', 'num'), array('Diferencia', 'num'));
+	$secciones = array();
+	foreach ($grupos as $g) {
+		if ($g['titulo'] == 'Congelados') {
+			continue; // por unidad: ver "Camión congelados" e "Inventario de ventas"
+		}
+		$filas = array();
+		$conteo = array('g' => array(0, 0), 'uds' => array(0, 0)); // [real, kit] por unidad, para los totales de conteo
+		foreach ($g['items'] as $it) {
+			$p = isset($data['productos'][$it['id']]) ? $data['productos'][$it['id']] : null;
+			$f = $it['factor'] > 0 ? $it['factor'] : 1;
+			$ex = $p ? $p['ex'] : 0;
+			$rep = $p ? $p['rep'] : 0;
+			$baja = $p ? $p['regalo'] + $p['danadas'] : 0;
+			$cierre = $p ? $p['cierre'] : 0;
+			$real = $ex + $rep - $baja - $cierre;
+			$vm = isset($ventasMov[$it['id']]) ? $ventasMov[$it['id']] : 0;
+			$t = isset($teo[$it['id']]) ? $teo[$it['id']] : 0;
+			if (!$p && !$t && !$vm) {
+				continue; // sin movimiento en el turno
+			}
+			$deConteo = sabrooskiposEsDeConteo($db, $it['id']);
+			if ($deConteo) {
+				$u = ($it['unidad'] == 'uds' ? 'uds' : 'g');
+				$conteo[$u][0] += $real;
+				$conteo[$u][1] += $t;
+			}
+			$filas[] = array($it['label'], $it['unidad'], $ex / $f, $rep / $f, ($ex + $rep) / $f, $baja / $f, $cierre / $f, $real / $f, $vm / $f,
+				($deConteo ? ($t ? $t / $f : '') : $t / $f), ($deConteo ? '' : ($real - $t) / $f));
+		}
+		if ($g['titulo'] == 'Mix por sabor' && $mixSinSabor > 0) {
+			$filas[] = array('Mix sin sabor registrado (ventas fuera del popup)', 'kg', '', '', '', '', '', '', '', $mixSinSabor / 1000, '');
+		}
+		// Totales de lo que se controla por conteo: real (todas las variedades) vs teórico
+		// (receta + adicionales + lo que ya descuentan los especiales por kit).
+		$total = null;
+		if ($g['titulo'] == 'Siropes') {
+			$t = $teoSirope + $conteo['g'][1];
+			$total = array('TOTAL SIROPE', 'g', '', '', '', '', '', $conteo['g'][0], '', $t, $conteo['g'][0] - $t);
+		} elseif ($g['titulo'] == 'Toppings') {
+			$tg = $teoTopping + $conteo['g'][1];
+			$tu = $teoPiru + $conteo['uds'][1];
+			$filas[] = array('TOTAL PIRULÍN Y OREO', 'uds', '', '', '', '', '', $conteo['uds'][0], '', $tu, $conteo['uds'][0] - $tu);
+			$total = array('TOTAL TOPPING', 'g', '', '', '', '', '', $conteo['g'][0], '', $tg, $conteo['g'][0] - $tg);
+		}
+		if ($filas || $total) {
+			$secciones[] = array('titulo' => $g['titulo'].($g['unidad'] == 'kg' ? ' (kg)' : ''), 'columnas' => $cols, 'filas' => $filas, 'total' => $total);
+		}
+	}
+	return array('titulo' => 'SABROOSKI – INSUMOS DEL MÓVIL', 'hoja' => 'Insumos',
+		'nota' => 'Consumo real = existencia + carga − regalías/dañadas − cierre. Siropes y toppings se comparan en total: el cliente elige el tipo en la barra. '
+			.'Sin conteo de cierre, el cierre es lo que dice el sistema.',
+		'secciones' => $secciones);
+}
+
+/**
+ * Planilla "Costos y margen": ventas del turno por producto con el costo de su receta, y
+ * el costo por receta de todo el catálogo (para comparar con la estructura de costos).
+ *
+ * @param array $data
+ * @return array
+ */
+function sabrooskiposReporteCostos($data)
+{
+	global $db;
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+
+	$prods = array();
+	foreach ($data['lineas'] as $l) {
+		if ($l['fk_product'] <= 0) {
+			continue;
+		}
+		$k = $l['fk_product'];
+		if (!isset($prods[$k])) {
+			$prods[$k] = array('label' => $l['label'], 'ref' => $l['ref'], 'qty' => 0, 'ttc' => 0, 'ht' => 0);
+		}
+		$prods[$k]['qty'] += $l['qty'];
+		$prods[$k]['ttc'] += $l['total'];
+		$prods[$k]['ht'] += $l['total_ht'];
+	}
+	uasort($prods, function ($a, $b) {
+		return strcmp($a['ref'], $b['ref']);
+	});
+	$filas = array();
+	$tot = array('TOTAL', '', 0, 0, '', 0, 0, '');
+	foreach ($prods as $pid => $p) {
+		$cu = sabrooskiposCostoReceta($db, $pid);
+		$costo = $cu['costo'] * $p['qty'];
+		$margen = $p['ht'] - $costo;
+		$filas[] = array($p['label'], $p['qty'], $p['ttc'], $p['ht'], $cu['costo'], $costo, $margen, ($p['ht'] != 0 ? 100 * $margen / $p['ht'] : ''));
+		$tot[2] += $p['ttc'];
+		$tot[3] += $p['ht'];
+		$tot[5] += $costo;
+		$tot[6] += $margen;
+	}
+	$tot[7] = ($tot[3] != 0 ? 100 * $tot[6] / $tot[3] : '');
+	$cols = array(array('Producto', 'text'), array('Uds', 'num'), array('Venta con IVA ($)', 'usd'), array('Venta sin IVA ($)', 'usd'),
+		array('Costo unit. ($)', 'usd'), array('Costo total ($)', 'usd'), array('Margen ($)', 'usd'), array('Margen %', 'num'));
+
+	// Costo por receta del catálogo en venta.
+	$filas2 = array();
+	$resql = $db->query("SELECT p.rowid, p.ref, p.label, p.price_ttc, p.price, p.tosell FROM ".MAIN_DB_PREFIX."product p"
+		." WHERE p.entity IN (".getEntity('product').") AND (p.rowid IN (SELECT fk_product_pere FROM ".MAIN_DB_PREFIX."product_association WHERE incdec = 1)"
+		." OR p.ref LIKE 'PV-%') ORDER BY p.ref");
+	while ($resql && ($o = $db->fetch_object($resql))) {
+		$cu = sabrooskiposCostoReceta($db, $o->rowid);
+		$det = array();
+		foreach ($cu['detalle'] as $k => $v) {
+			$det[] = $k.' '.price($v, 0, '', 1, -1, 4);
+		}
+		$filas2[] = array($o->label.($o->tosell ? '' : ' (fuera de venta)'), (float) $o->price_ttc, (float) $o->price, $cu['costo'],
+			((float) $o->price > 0 ? 100 * ((float) $o->price - $cu['costo']) / (float) $o->price : ''), implode(' · ', $det));
+	}
+	$cols2 = array(array('Producto', 'text'), array('Precio con IVA ($)', 'usd'), array('Precio sin IVA ($)', 'usd'), array('Costo receta ($)', 'usd'),
+		array('Margen %', 'num'), array('Detalle', 'text'));
+
+	return array('titulo' => 'SABROOSKI – COSTOS Y MARGEN', 'hoja' => 'Costos',
+		'nota' => 'Costo de receta: insumos fijos × costo + mix, sirope y topping × costo de referencia por gramo + pirulín/oreo. Margen sobre la venta sin IVA.',
+		'secciones' => array(
+			array('titulo' => 'Ventas del turno', 'columnas' => $cols, 'filas' => $filas, 'total' => ($filas ? $tot : null)),
+			array('titulo' => 'Costo por receta', 'columnas' => $cols2, 'filas' => $filas2, 'total' => null),
+		));
 }

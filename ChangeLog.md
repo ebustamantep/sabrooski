@@ -1,5 +1,20 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.8
+
+- Servidos por receta (`recetas_sabrooski.json`, de "Estructura de Costos Sistema.xlsx"):
+  insumos fijos como kits nativos (se descuentan al validar el ticket) y mix por sabor
+  descontado por el trigger `interface_99_modSabrooskiPOS_Recetas`. Sirope, topping y
+  pirulín/oreo: consumo teórico contra conteo de cierre.
+- Insumos con costo y unidad de control; productos nuevos (especiales Susy, Cocosette y
+  Maní cubierto, Brownie con helado, Helado de coco, Barquillón congelado) fuera de venta
+  hasta tener precio.
+- Carga del camión (traslado Principal → móvil con movilstock) y cierre por conteo.
+- ReportesVentas: "Insumos del móvil" y "Costos y margen".
+- Migración: el catálogo lleva kits, costos y constantes; extrafields antes de la
+  transacción (Simular ya no guarda nada).
+- Popup: "Quitar"/"Vaciar" del carrito vuelven a funcionar (`removeLine` en `picker/api.php`).
+
 ## 1.7
 
 - Popup: los adicionales son solo **Topping** y **Sirope** genéricos con su cantidad

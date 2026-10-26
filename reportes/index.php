@@ -63,6 +63,8 @@ $reportes = array(
 	'pagomovil' => array('Pago móvil y puntos', 'sabrooskiposReportePagoMovil'),
 	'especificaciones' => array('Especificaciones de ventas', 'sabrooskiposReporteEspecificaciones'),
 	'inventario' => array('Inventario de ventas', 'sabrooskiposReporteInventario'),
+	'insumos' => array('Insumos del móvil', 'sabrooskiposReporteInsumos'),
+	'costos' => array('Costos y margen', 'sabrooskiposReporteCostos'),
 );
 
 $turnos = sabrooskiposReporteTurnos($db);

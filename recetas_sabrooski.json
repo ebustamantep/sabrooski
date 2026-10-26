@@ -1,0 +1,113 @@
+{
+  "fuente": "Estructura de Costos Sistema.xlsx (hoja COSTO UNITARIO 2026). Costos en USD por unidad de control (uds o gramo).",
+  "notas": [
+    "Gramos deducidos del costo del Excel: Susy y Cocosette 28 g, mani cubierto 74 g, topping de tinita 18 g, brownie: mix 97 g y sirope 17 g.",
+    "Oreo (galletas) y Pirulin se cuentan en unidades.",
+    "Los precios de venta de los productos existentes no se tocan; los nuevos quedan fuera de venta hasta tener precio."
+  ],
+  "referencias": {
+    "costo_g_mix": 0.002044,
+    "costo_g_sirope": 0.0096,
+    "costo_g_topping": 0.0126,
+    "costo_pirulin_oreo": 0.178
+  },
+  "categorias": [
+    {"label": "Mix", "parent": "Insumos"},
+    {"label": "Envases", "parent": "Insumos"},
+    {"label": "Desechables", "parent": "Insumos"},
+    {"label": "Complementos", "parent": "Insumos"}
+  ],
+  "insumos": [
+    {"ref": "INS-050", "label": "Mix de chocolate", "unidad": "g", "costo": 0.002044, "categoria": "Mix"},
+    {"ref": "INS-051", "label": "Mix de mantecado", "unidad": "g", "costo": 0.002044, "categoria": "Mix"},
+    {"ref": "INS-052", "label": "Mix de fresa", "unidad": "g", "costo": 0.002044, "categoria": "Mix"},
+    {"ref": "INS-053", "label": "Mix de coco", "unidad": "g", "costo": 0.002044, "categoria": "Mix"},
+    {"ref": "INS-010", "label": "Vaso sundae", "unidad": "uds", "costo": 0.0773, "categoria": "Envases"},
+    {"ref": "INS-012", "label": "Cono barquilla", "unidad": "uds", "costo": 0.0563, "categoria": "Envases"},
+    {"ref": "INS-013", "label": "Portacono", "unidad": "uds", "costo": 0.03, "categoria": "Envases"},
+    {"ref": "INS-014", "label": "Cono barquillón", "unidad": "uds", "costo": 0.1733, "categoria": "Envases"},
+    {"ref": "INS-015", "label": "Cono maxicono", "unidad": "uds", "costo": 0.125, "categoria": "Envases"},
+    {"ref": "INS-016", "label": "Cesta", "unidad": "uds", "costo": 0.30, "categoria": "Envases"},
+    {"ref": "INS-017", "label": "Envase tinita", "unidad": "uds", "costo": 0.12, "categoria": "Envases"},
+    {"ref": "INS-018", "label": "Bandeja brownie", "unidad": "uds", "costo": 0.0417, "categoria": "Envases"},
+    {"ref": "INS-021", "label": "Vaso domo 8 oz", "unidad": "uds", "costo": 0.0592, "categoria": "Envases"},
+    {"ref": "INS-032", "label": "Vasos de muestras", "unidad": "uds", "costo": 0.0235, "categoria": "Envases"},
+    {"ref": "INS-070", "label": "Envase bandeja 500 g", "unidad": "uds", "costo": 0, "categoria": "Envases"},
+    {"ref": "INS-071", "label": "Envase bandeja 1000 g", "unidad": "uds", "costo": 0, "categoria": "Envases"},
+    {"ref": "INS-030", "label": "Cucharillas", "unidad": "uds", "costo": 0.0129, "categoria": "Desechables"},
+    {"ref": "INS-031", "label": "Servilletas", "unidad": "uds", "costo": 0.0042, "categoria": "Desechables"},
+    {"ref": "INS-081", "label": "Etiqueta", "unidad": "uds", "costo": 0.0142, "categoria": "Desechables"},
+    {"ref": "INS-082", "label": "Bolsa", "unidad": "uds", "costo": 0.02, "categoria": "Desechables"},
+    {"ref": "INS-060", "label": "Guantes", "unidad": "uds", "costo": 0, "categoria": "Desechables"},
+    {"ref": "INS-061", "label": "Rollos de puntos", "unidad": "uds", "costo": 0, "categoria": "Desechables"},
+    {"ref": "INS-080", "label": "Brownie", "unidad": "uds", "costo": 2.5, "categoria": "Complementos"},
+    {"ref": "TOP-MCUB", "label": "Maní cubierto", "unidad": "g", "costo": 0.0128, "categoria": "Topping"},
+    {"ref": "TOP-SUSY", "label": "Susy trocitos", "unidad": "g", "costo": 0.0108, "categoria": "Topping"},
+    {"ref": "TOP-COCS", "label": "Cocosette trocitos", "unidad": "g", "costo": 0.0108, "categoria": "Topping"}
+  ],
+  "costos": {
+    "SIR-CHOC": {"costo": 0.0096, "unidad": "g"},
+    "SIR-LECH": {"costo": 0.0067, "unidad": "g"},
+    "SIR-FRES": {"costo": 0.0092, "unidad": "g"},
+    "SIR-AREQ": {"costo": 0.0067, "unidad": "g"},
+    "TOP-DAND": {"costo": 0.0078, "unidad": "g"},
+    "TOP-CERE": {"costo": 0.0126, "unidad": "g"},
+    "TOP-CHIS": {"costo": 0, "unidad": "g"},
+    "TOP-GRAG": {"costo": 0, "unidad": "g"},
+    "TOP-CARN": {"costo": 0, "unidad": "g"},
+    "TOP-MANI": {"costo": 0, "unidad": "g"},
+    "TOP-MALT": {"costo": 0, "unidad": "g"},
+    "TOP-OREO": {"costo": 0.0979, "unidad": "uds"},
+    "TOP-PIRU": {"costo": 0.178, "unidad": "uds"},
+    "INS-040": {"costo": 0.82, "unidad": "uds"},
+    "INS-041": {"costo": 0.4742, "unidad": "uds"},
+    "INS-042": {"costo": 0.1827, "unidad": "uds"},
+    "PV-025": {"costo": 0.4432, "unidad": "uds"},
+    "PV-026": {"costo": 0.7438, "unidad": "uds"}
+  },
+  "productos_nuevos": [
+    {"ref": "PV-007", "label": "Brownie con helado", "categoria": "Servido en camión", "stockable": 0},
+    {"ref": "PV-015", "label": "Especial Susy", "categoria": "Especial domo", "stockable": 0},
+    {"ref": "PV-016", "label": "Especial Cocosette", "categoria": "Especial domo", "stockable": 0},
+    {"ref": "PV-017", "label": "Especial Maní cubierto", "categoria": "Especial domo", "stockable": 0},
+    {"ref": "PV-025", "label": "Helado de coco", "categoria": "Empaquetado", "stockable": 1},
+    {"ref": "PV-026", "label": "Barquillón congelado", "categoria": "Empaquetado", "stockable": 1}
+  ],
+  "recetas": [
+    {"ref": "PV-001", "mix_g": 172, "sirope_g": 11, "topping_g": 21, "pirulin_oreo": 0, "kit": {"INS-010": 1, "INS-030": 1, "INS-031": 1}},
+    {"ref": "PV-002", "mix_g": 90, "sirope_g": 4, "topping_g": 10, "pirulin_oreo": 0, "kit": {"INS-012": 1, "INS-013": 1, "INS-031": 1}},
+    {"ref": "PV-003", "mix_g": 146, "sirope_g": 4, "topping_g": 26, "pirulin_oreo": 1, "kit": {"INS-014": 1, "INS-030": 1, "INS-031": 1}},
+    {"ref": "PV-004", "mix_g": 115, "sirope_g": 5, "topping_g": 16, "pirulin_oreo": 1, "kit": {"INS-015": 1, "INS-031": 1}},
+    {"ref": "PV-005", "mix_g": 116, "sirope_g": 4, "topping_g": 32, "pirulin_oreo": 1, "kit": {"INS-016": 1, "INS-030": 1, "INS-031": 1}},
+    {"ref": "PV-006", "mix_g": 108, "sirope_g": 2, "topping_g": 18, "pirulin_oreo": 0, "kit": {"INS-017": 1, "INS-030": 1, "INS-031": 1}},
+    {"ref": "PV-007", "mix_g": 97, "sirope_g": 17, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-080": 1, "INS-018": 1, "INS-030": 1, "INS-031": 1}},
+    {"ref": "PV-010", "mix_g": 136, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "INS-040": 1}},
+    {"ref": "PV-011", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "INS-041": 2}},
+    {"ref": "PV-012", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "INS-042": 3}},
+    {"ref": "PV-013", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "TOP-OREO": 4}},
+    {"ref": "PV-014", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "TOP-PIRU": 5}},
+    {"ref": "PV-015", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "TOP-SUSY": 28}},
+    {"ref": "PV-016", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "TOP-COCS": 28}},
+    {"ref": "PV-017", "mix_g": 146, "sirope_g": 51, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-021": 1, "INS-030": 1, "INS-031": 1, "TOP-MCUB": 74}},
+    {"ref": "PV-023", "mix_g": 0, "sirope_g": 0, "topping_g": 0, "pirulin_oreo": 0, "kit": {"INS-012": 4, "INS-081": 1, "INS-082": 1}},
+    {"ref": "PV-031", "mix_g": 0, "sirope_g": 0, "topping_g": 15, "pirulin_oreo": 0, "kit": {}},
+    {"ref": "PV-032", "mix_g": 0, "sirope_g": 10, "topping_g": 0, "pirulin_oreo": 0, "kit": {}}
+  ],
+  "sabores_mix": {
+    "SM-01": {"INS-052": 1},
+    "SM-02": {"INS-051": 1},
+    "SM-03": {"INS-051": 0.5, "INS-052": 0.5},
+    "SM-04": {"INS-050": 1},
+    "SM-05": {"INS-050": 0.5, "INS-052": 0.5},
+    "SM-06": {"INS-050": 0.5, "INS-051": 0.5}
+  },
+  "carga": [
+    {"titulo": "Mix por sabor", "unidad": "kg", "factor": 1000, "refs": ["INS-050", "INS-051", "INS-052", "INS-053"]},
+    {"titulo": "Vasos, conos y envases", "unidad": "uds", "factor": 1, "categorias": ["Envases"]},
+    {"titulo": "Siropes", "unidad": "g", "factor": 1, "categorias": ["Sirope"]},
+    {"titulo": "Toppings", "unidad": "", "factor": 1, "categorias": ["Topping"]},
+    {"titulo": "Golosinas y complementos", "unidad": "uds", "factor": 1, "categorias": ["Golosinas", "Complementos"]},
+    {"titulo": "Desechables", "unidad": "uds", "factor": 1, "categorias": ["Desechables"]},
+    {"titulo": "Congelados", "unidad": "uds", "factor": 1, "categorias": ["Bandejas 500 g", "Sundae congelado", "Empaquetado"]}
+  ]
+}

@@ -412,3 +412,55 @@ El turno 10/10 se deja como está (el usuario borró a mano los tickets 0046..00
 planillas, capturas, zips ni .git). Orden en producción: instalar el zip → importar el JSON de
 catálogo + configuración en Setup → Sabrooski POS → Migración (primero **Simular**).
 
+
+---
+
+## 17. Servidos por receta, carga del camión, cierre y costos (v1.8, 2026-10-26)
+
+Pedido tras las pruebas en caliente: los servidos se controlan por insumos (vasos, conos,
+mix por sabor, sirope, topping, cucharillas, servilletas), los congelados por unidad.
+Fuente: `Estructura de Costos Sistema.xlsx` → `recetas_sabrooski.json`. Plan aprobado en
+`C:\Users\Edgar\.claude\plans\eventual-enchanting-seal.md`. Respaldo previo:
+`C:\laragon\www\sabrooski_backup\sabrooski_db_antes_recetas.sql`.
+
+Decisiones del usuario: sirope, topping y pirulín/oreo (el cliente elige en la barra) no se
+descuentan al vender, se comparan en total contra el conteo de cierre; sabores combinados
+mitad y mitad; adicional Topping 15 g y Sirope 10 g; productos nuevos incluidos; costos con
+reporte de margen; carga = traslado desde Principal.
+
+- **Recetas** (`lib/sabrooskipos_recetas.lib.php`, `test/cargar_recetas_cli.php [--simular]`,
+  idempotente): 21 productos nuevos (15 insumos, 6 de venta fuera de venta hasta tener
+  precio), costos en `cost_price`, extrafields `gramos_sirope`, `gramos_topping`,
+  `uds_pirulin_oreo`, `unidad_control` (producto) y `sabrooski_sabores` (línea de factura);
+  `gramos_porcion` = gramos de mix. Kits nativos (`incdec = 1`) para los insumos fijos; los
+  SM-* son kits de mix (`incdec = 0`, solo reparto). `PRODUIT_SOUSPRODUITS = 1`. Existencia
+  propia de Sundae/Barquilla/Barquillón/Tinita puesta en 0 ("pasa a receta").
+  Mix y siropes en gramos; Oreo y Pirulín en unidades.
+- **Al vender**: Dolibarr descuenta el kit; el trigger
+  `core/triggers/interface_99_modSabrooskiPOS_Recetas.class.php` descuenta el mix según los
+  sabores que guarda el popup (`setLineSabores`), devuelve en notas de crédito y revierte en
+  anular/borrar. Dolibarr no permite existencias negativas: **sin insumos cargados en el
+  móvil no se puede vender**.
+- **Carga y cierre** (`carga/index.php`, `carga/cierre.php`, permiso `sabrooskipos->carga->write`,
+  menú ReportesVentas): Existencia inicial / Reposición = traslado movilstock
+  (`movilstockCrearTraslado()`, extraído de `movilstockindex.php`); Entrada a Principal;
+  conteo de cierre → "Consumo del turno (conteo)" (siropes/toppings) o "Ajuste cierre (conteo)".
+- **Reportes**: "Insumos del móvil" (real = existencia + carga − regalías/dañadas − cierre
+  contra teórico; sirope, topping y pirulín/oreo en total) y "Costos y margen" (ventas del
+  turno + costo por receta).
+- **Pruebas** (todo revertido): `test/recetas_cli.php` (ticket + nota de crédito + costos vs
+  Excel) y `test/ciclo_turno_cli.php` (entrada → carga → venta → cierre → reportes) → Todo OK.
+- **Migración**: el catálogo lleva `cost_price`, kits y constantes. Corregido: los extrafields
+  se crean antes de la transacción (`sabrooskiposImportExtrafields()`); antes un ALTER TABLE
+  confirmaba la transacción y "Simular" guardaba todo. `sabrooski_prodtest` se reconstruyó
+  desde `sabrooski_db_antes_topping_generico.sql` + paquete 20261021 (réplica de producción) y
+  la simulación del paquete nuevo da 0 errores.
+- **Bug corregido**: "Quitar"/"Vaciar" del carrito del popup no hacían nada (`removeLine` no
+  existía en `picker/api.php`).
+- Diferencias con el Excel: cesta $0,30 (tabla de insumos) vs $0,25 (receta); el Especial
+  Flaquito dice "3 uds" pero su costo equivale a 2.
+
+**Despliegue:** `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.8.zip` y
+`sabrooskipos_catalogo_config_20261026.json`. En producción: instalar el zip → reactivar el
+módulo (trigger, permiso y menús) → Migración: Simular e Importar → cargar el inventario de
+Principal y la existencia inicial del móvil antes de vender.

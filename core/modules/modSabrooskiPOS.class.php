@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.7';
+		$this->version = '1.8';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -92,7 +92,7 @@ class modSabrooskiPOS extends DolibarrModules
 		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
 			// Set this to 1 if module has its own trigger directory (core/triggers)
-			'triggers' => 0,
+			'triggers' => 1,
 			// Set this to 1 if module has its own login method file (core/login)
 			'login' => 0,
 			// Set this to 1 if module has its own substitution function file (core/substitutions)
@@ -324,6 +324,13 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->rights[$r][4] = 'reportes';
 		$this->rights[$r][5] = 'read'; // $user->hasRight('sabrooskipos', 'reportes', 'read')
 		$r++;
+		$o = 3;
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 1);
+		$this->rights[$r][1] = 'Registrar carga y cierre (conteo) del camión';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'carga';
+		$this->rights[$r][5] = 'write'; // $user->hasRight('sabrooskipos', 'carga', 'write')
+		$r++;
 		/* END MODULEBUILDER PERMISSIONS */
 
 
@@ -348,7 +355,24 @@ class modSabrooskiPOS extends DolibarrModules
 			'target' => '',
 			'user' => 2,
 		);
-		foreach (array('camion' => 'Camión congelados', 'pagomovil' => 'Pago móvil y puntos', 'especificaciones' => 'Especificaciones de ventas', 'inventario' => 'Inventario de ventas') as $code => $label) {
+		$permcarga = '$user->admin || $user->hasRight("sabrooskipos", "carga", "write")';
+		foreach (array('carga' => 'Carga del camión', 'cierre' => 'Cierre (conteo)') as $code => $label) {
+			$this->menu[$r++] = array(
+				'fk_menu' => 'fk_mainmenu=reportesventas',
+				'type' => 'left',
+				'titre' => $label,
+				'mainmenu' => 'reportesventas',
+				'leftmenu' => 'reportesventas_'.$code,
+				'url' => '/sabrooskipos/carga/'.($code == 'carga' ? 'index' : 'cierre').'.php',
+				'langs' => 'sabrooskipos@sabrooskipos',
+				'position' => 1000 + $r,
+				'enabled' => 'isModEnabled("sabrooskipos")',
+				'perms' => $permcarga,
+				'target' => '',
+				'user' => 2,
+			);
+		}
+		foreach (array('camion' => 'Camión congelados', 'pagomovil' => 'Pago móvil y puntos', 'especificaciones' => 'Especificaciones de ventas', 'inventario' => 'Inventario de ventas', 'insumos' => 'Insumos del móvil', 'costos' => 'Costos y margen') as $code => $label) {
 			$this->menu[$r++] = array(
 				'fk_menu' => 'fk_mainmenu=reportesventas',
 				'type' => 'left',

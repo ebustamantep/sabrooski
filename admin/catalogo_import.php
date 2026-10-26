@@ -98,6 +98,8 @@ if ($action == 'run' && $user->admin) {
 	if (!is_array($data)) {
 		setEventMessages('No se recibió un JSON válido (subí el archivo o dejá catalogo_export.json en el módulo).', null, 'errors');
 	} else {
+		// Extrafields antes de la transacción (ALTER TABLE = commit implícito en MySQL).
+		sabrooskiposImportExtrafields($db, $data, $report);
 		$db->begin();
 		$result = sabrooskiposImportCatalogo($db, $user, $data, $report);
 		if ($result > 0) {

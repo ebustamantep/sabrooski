@@ -283,6 +283,60 @@ if ($action == 'getCart') {
 	exit;
 }
 
+/**
+ * Factura provisional del TakePOS para este terminal y mesa (null si no existe o ya no
+ * es borrador).
+ */
+function pickerFacturaProvisional($db)
+{
+	require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+	$term = empty($_SESSION['takeposterminal']) ? 1 : $_SESSION['takeposterminal'];
+	$place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : 0);
+	$invoice = new Facture($db);
+	if ($invoice->fetch(0, '(PROV-POS'.$term.'-'.$place.')') <= 0 || $invoice->status != Facture::STATUS_DRAFT) {
+		return null;
+	}
+	return $invoice;
+}
+
+if ($action == 'removeLine') {
+	// "Quitar" del carrito del popup: borra la línea de la factura provisional.
+	$lineid = GETPOSTINT('lineid');
+	$invoice = pickerFacturaProvisional($db);
+	if (!$invoice || $lineid <= 0) {
+		echo json_encode(array('error' => 'Line not found'));
+		exit;
+	}
+	$res = $invoice->deleteLine($lineid);
+	echo json_encode($res > 0 ? array('ok' => 1) : array('error' => 'No se pudo quitar la línea'));
+	exit;
+}
+
+if ($action == 'setLineSabores') {
+	// Sabores (ids de productos SM-*) de la línea recién agregada: el trigger de recetas
+	// los usa para descontar el mix por sabor al validar el ticket.
+	$lineid = GETPOSTINT('lineid');
+	$sabores = implode(',', array_filter(array_map('intval', explode(',', GETPOST('sabores', 'alphanohtml')))));
+	$invoice = pickerFacturaProvisional($db);
+	$line = null;
+	if ($invoice) {
+		foreach ($invoice->lines as $l) {
+			if ((int) $l->id == $lineid) {
+				$line = $l;
+			}
+		}
+	}
+	if (!$line) {
+		echo json_encode(array('error' => 'Line not found'));
+		exit;
+	}
+	$line->fetch_optionals();
+	$line->array_options['options_sabrooski_sabores'] = $sabores;
+	$res = $line->insertExtraFields();
+	echo json_encode($res > 0 ? array('ok' => 1, 'sabores' => $sabores) : array('error' => 'No se pudieron guardar los sabores'));
+	exit;
+}
+
 if ($action == 'getProduct') {
 	$prod = new Product($db);
 	if ($idproduct <= 0 || $prod->fetch($idproduct) <= 0) {

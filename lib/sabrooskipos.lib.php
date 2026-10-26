@@ -344,7 +344,7 @@ function sabrooskiposExportCatalogo($db)
 	// Productos ligados a alguna categoría de producto
 	$products = array();
 	$idxByRef = array();
-	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price_ttc, p.tva_tx, p.tosell, p.tobuy, p.stockable_product, p.description";
+	$sql = "SELECT DISTINCT p.rowid, p.ref, p.label, p.price_ttc, p.tva_tx, p.tosell, p.tobuy, p.stockable_product, p.description, p.cost_price";
 	$sql .= " FROM ".MAIN_DB_PREFIX."product as p";
 	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie_product as cp ON cp.fk_product = p.rowid";
 	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cp.fk_categorie AND c.type = ".((int) $typeProduct);
@@ -364,6 +364,7 @@ function sabrooskiposExportCatalogo($db)
 				'tobuy' => (int) $obj->tobuy,
 				'stockable_product' => (int) $obj->stockable_product,
 				'description' => (string) $obj->description,
+				'cost_price' => ($obj->cost_price === null ? null : (float) $obj->cost_price),
 				'categories' => array(),
 				'extrafields' => array(),
 			);
@@ -495,6 +496,21 @@ function sabrooskiposExportCatalogo($db)
 		return !in_array($p['ref'], $retired);
 	}));
 
+	// Kits (recetas de los servidos y reparto de mix de los sabores), por ref.
+	$exportados = array();
+	foreach ($products as $p) {
+		$exportados[$p['ref']] = 1;
+	}
+	$kits = array();
+	$resql = $db->query("SELECT pp.ref AS padre, pf.ref AS hijo, a.qty, a.incdec FROM ".MAIN_DB_PREFIX."product_association a"
+		." JOIN ".MAIN_DB_PREFIX."product pp ON pp.rowid = a.fk_product_pere JOIN ".MAIN_DB_PREFIX."product pf ON pf.rowid = a.fk_product_fils"
+		." ORDER BY pp.ref, a.rang, pf.ref");
+	while ($resql && ($obj = $db->fetch_object($resql))) {
+		if (isset($exportados[$obj->padre]) && isset($exportados[$obj->hijo])) {
+			$kits[] = array('padre' => (string) $obj->padre, 'hijo' => (string) $obj->hijo, 'qty' => (float) $obj->qty, 'incdec' => (int) $obj->incdec);
+		}
+	}
+
 	return array(
 		'generated_at' => dol_print_date(dol_now(), 'dayhourrfc'),
 		'retired_refs' => $retired,
@@ -505,47 +521,42 @@ function sabrooskiposExportCatalogo($db)
 		'constants_by_product_ref' => $constants_by_product_ref,
 		'hidden_category_labels' => $hidden_category_labels,
 		'extrafield_definitions' => $efdefs,
-		'constants_plain' => array(
+		'kits' => $kits,
+		'constants_plain' => array_filter(array(
 			'SABROOSKIPOS_TVA_TX' => getDolGlobalString('SABROOSKIPOS_TVA_TX', '16'),
-		),
+			'PRODUIT_SOUSPRODUITS' => getDolGlobalString('PRODUIT_SOUSPRODUITS'),
+			'SABROOSKIPOS_COSTO_G_MIX' => getDolGlobalString('SABROOSKIPOS_COSTO_G_MIX'),
+			'SABROOSKIPOS_COSTO_G_SIROPE' => getDolGlobalString('SABROOSKIPOS_COSTO_G_SIROPE'),
+			'SABROOSKIPOS_COSTO_G_TOPPING' => getDolGlobalString('SABROOSKIPOS_COSTO_G_TOPPING'),
+			'SABROOSKIPOS_COSTO_PIRULIN_OREO' => getDolGlobalString('SABROOSKIPOS_COSTO_PIRULIN_OREO'),
+		), function ($v) {
+			return $v !== '';
+		}),
 	);
 }
 
 /**
- * Importa un catálogo exportado (categorías + productos + constantes) resolviendo
- * los IDs por LABEL (categorías) y REF (productos), para poder pasar datos entre
- * instalaciones con IDs distintos. Idempotente.
+ * Crea los extrafields que necesita el catálogo importado: los del módulo, los de recetas
+ * (incluye el de sabores de la línea de factura) y las definiciones exportadas que falten.
  *
- * Estructura esperada de $data (ver admin/catalogo_export.php):
- *   categories: [ {label, parent}, ... ]
- *   products:   [ {ref, label, price_ttc, tosell, categories:[label,...], extrafields:{...}}, ... ]
- *   root_category_label: "Productos de punto de venta (POS)"
- *   constants_by_category_label: { CONST => "label", ... }
- *   constants_by_product_ref:    { CONST => "ref", ... }
- *   hidden_category_labels: ["Adicional", ...]
- *   constants_plain: { CONST => "valor", ... }
+ * Llamar ANTES de abrir la transacción de la importación: addExtraField() hace ALTER
+ * TABLE, que en MySQL confirma (commit implícito) la transacción abierta, y una
+ * simulación terminaría guardando todo lo que viene después.
  *
  * @param DoliDB $db
- * @param User   $user
- * @param array  $data    Datos decodificados del JSON
+ * @param array  $data    Catálogo exportado
  * @param array  $report  Reporte (por referencia)
- * @return int 1 si OK, 0 si los datos no son válidos
+ * @return void
  */
-function sabrooskiposImportCatalogo($db, $user, $data, &$report)
+function sabrooskiposImportExtrafields($db, $data, &$report)
 {
-	global $conf;
-
-	require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
-	require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
-	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 	require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 
-	if (!is_array($data) || (empty($data['categories']) && empty($data['products']))) {
-		return 0;
-	}
-
-	// 1) Extrafields de producto del módulo (los conocidos)
+	// 1) Extrafields de producto del módulo (los conocidos) y los de recetas (incluye el
+	// de sabores de la línea de factura).
 	sabrooskiposEnsureExtrafields($db);
+	require_once __DIR__.'/sabrooskipos_recetas.lib.php';
+	sabrooskiposRecetasEnsureExtrafields($db);
 
 	// 1b) Definiciones de extrafields exportadas: crear las que falten
 	if (!empty($data['extrafield_definitions']) && is_array($data['extrafield_definitions'])) {
@@ -589,6 +600,43 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 			}
 		}
 	}
+}
+
+/**
+ * Importa un catálogo exportado (categorías + productos + constantes) resolviendo
+ * los IDs por LABEL (categorías) y REF (productos), para poder pasar datos entre
+ * instalaciones con IDs distintos. Idempotente.
+ *
+ * Estructura esperada de $data (ver admin/catalogo_export.php):
+ *   categories: [ {label, parent}, ... ]
+ *   products:   [ {ref, label, price_ttc, tosell, categories:[label,...], extrafields:{...}}, ... ]
+ *   root_category_label: "Productos de punto de venta (POS)"
+ *   constants_by_category_label: { CONST => "label", ... }
+ *   constants_by_product_ref:    { CONST => "ref", ... }
+ *   hidden_category_labels: ["Adicional", ...]
+ *   constants_plain: { CONST => "valor", ... }
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @param array  $data    Datos decodificados del JSON
+ * @param array  $report  Reporte (por referencia)
+ * @return int 1 si OK, 0 si los datos no son válidos
+ */
+function sabrooskiposImportCatalogo($db, $user, $data, &$report)
+{
+	global $conf;
+
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+	require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+
+	if (!is_array($data) || (empty($data['categories']) && empty($data['products']))) {
+		return 0;
+	}
+
+	// 1) Extrafields (no-op si ya existen; quien llama los crea antes de la transacción)
+	sabrooskiposImportExtrafields($db, $data, $report);
 
 	// 2) Categorías (multi-pase por jerarquía: primero los padres)
 	$cats = (isset($data['categories']) && is_array($data['categories'])) ? $data['categories'] : array();
@@ -679,6 +727,10 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 				if (isset($p['stockable_product'])) {
 					$db->query("UPDATE ".MAIN_DB_PREFIX."product SET stockable_product = ".((int) $p['stockable_product'])." WHERE rowid = ".((int) $pid));
 				}
+				if (isset($p['cost_price']) && $p['cost_price'] !== null && abs((float) $prod->cost_price - (float) $p['cost_price']) > 0.0000001) {
+					$db->query("UPDATE ".MAIN_DB_PREFIX."product SET cost_price = ".((float) $p['cost_price'])." WHERE rowid = ".((int) $pid));
+					$report['notas'][] = 'costo: '.$ref.' = '.$p['cost_price'];
+				}
 				$prod->setCategories($catids);
 			}
 		}
@@ -688,6 +740,26 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 	if (!empty($data['retired_refs']) && is_array($data['retired_refs'])) {
 		foreach ($data['retired_refs'] as $ref) {
 			sabrooskiposRetireProduct($db, $user, (string) $ref, $report);
+		}
+	}
+
+	// 3c) Kits (recetas): cada padre queda exactamente con los hijos del origen.
+	if (isset($data['kits']) && is_array($data['kits'])) {
+		$porPadre = array();
+		foreach ($data['kits'] as $k) {
+			if (isset($prodIdByRef[$k['padre']]) && isset($prodIdByRef[$k['hijo']])) {
+				$porPadre[$k['padre']]['incdec'] = (int) $k['incdec'];
+				$porPadre[$k['padre']]['hijos'][$prodIdByRef[$k['hijo']]] = (float) $k['qty'];
+			} else {
+				$report['errores'][] = 'Kit '.$k['padre'].' → '.$k['hijo'].': producto no encontrado';
+			}
+		}
+		foreach ($porPadre as $pref => $k) {
+			$prod = new Product($db);
+			$prod->fetch($prodIdByRef[$pref]);
+			if (sabrooskiposAplicarKit($db, $user, $prod, $k['hijos'], $k['incdec'], $report)) {
+				$report['notas'][] = 'kit: '.$pref.' ('.count($k['hijos']).' insumos)';
+			}
 		}
 	}
 
