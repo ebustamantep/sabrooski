@@ -464,3 +464,34 @@ reporte de margen; carga = traslado desde Principal.
 `sabrooskipos_catalogo_config_20261026.json`. En producción: instalar el zip → reactivar el
 módulo (trigger, permiso y menús) → Migración: Simular e Importar → cargar el inventario de
 Principal y la existencia inicial del móvil antes de vender.
+
+### 17.1 Inventario de prueba para pruebas en caliente (local, 2026-10-26)
+
+Respaldo previo: `C:\laragon\www\sabrooski_backup\sabrooski_db_antes_inventario_pruebas.sql`.
+`test/inventario_pruebas_cli.php [--simular]`: entrada a Principal de dos cargas típicas y
+"Existencia inicial" de una carga típica en Movil01AM y Movil01PM (se suma a lo que había):
+mix 10 kg por sabor, 200 uds por envase, 2 kg por sirope, 1 kg por topping (Oreo y Pirulín
+100 uds), golosinas 30 (brownie 20), cucharillas y servilletas 500, congelados 10 por sabor.
+Traslados `_TS-20261026-0001` (AM) y `_TS-20261026-0002` (PM).
+
+Bugs encontrados y corregidos:
+- `sabrooskiposRegistrarCarga()` usaba `dol_stringtotime()` sin cargar `date.lib.php`
+  (la planilla de carga habría fallado).
+- movilstock: la numeración de traslados y producciones no encontraba las refs del día (la
+  máscara empieza con "/" y la ref se guarda con "_"), así que todas salían "-0001". Se
+  corrigió y se renumeró el traslado duplicado del PM.
+
+### 17.2 Popup más rápido al agregar a la orden (2026-10-26)
+
+Agregar un producto con sus adicionales hacía ~11 peticiones en serie (6 a
+`takepos/invoice.php`, que pinta el ticket completo) + 2 para refrescar: Sundae + Topping +
+Sirope tardaba varios segundos. Ahora:
+- `picker/api.php` **action=addOrder** (POST, una sola petición): crea la factura provisional
+  si falta y agrega el producto (con su detalle y sabores en `sabrooski_sabores`) y cada
+  adicional ("para <producto>") con la misma lógica de precio, IVA, descuento del cliente y
+  costo (`MARGIN_TYPE`) que `takepos/invoice.php` action=addline; devuelve el carrito.
+- El popup pinta el carrito con esa respuesta y guarda en memoria los productos de cada
+  pestaña: al volver a la rejilla no hay más peticiones. También recuerda la pestaña activa
+  desde el inicio (antes, el primer agregado recargaba todo con `loadData()`).
+- Probado con un arnés CLI (transacción sin confirmar): 1 petición, ~400 ms con el arranque de
+  Dolibarr; líneas, precios, IVA y sabores correctos.

@@ -23,6 +23,7 @@
 	var current = null;       // estado del modal (producto + selección)
 	var flavors = [];
 	var catsCache = [];       // categorías ya cargadas (para volver a la rejilla sin re-fetch)
+	var productsCache = {};   // productos por categoría (mientras el popup está abierto)
 	var activeCatId = null;   // categoría activa al volver del modal
 
 	function $(sel, ctx) { return (ctx || document).querySelector(sel); }
@@ -82,6 +83,7 @@
 					return;
 				}
 				renderCats(cats);
+				activeCatId = String(cats[0].id);
 				loadCategoryProducts(cats[0].id);
 			})
 			.catch(function (err) {
@@ -89,7 +91,8 @@
 			});
 	}
 
-	function renderCats(cats) {
+	// cartData: carrito ya conocido (respuesta de addOrder) para no volver a pedirlo.
+	function renderCats(cats, cartData) {
 		catsCache = cats || [];
 		var root = $('#picker-root');
 		var html = '<div class="pk-panel">' +
@@ -119,14 +122,14 @@
 
 		bindClose(root);
 		bindFinish(root);
-		renderCart();
+		renderCart(cartData);
 	}
 
 	/* ---------- resumen de la orden (carrito) ---------- */
 	// Lee la factura provisional del TakePOS (getCart) y pinta el panel derecho,
 	// igual que la columna "Orden actual" de index.html. El botón principal es
 	// "Finalizar orden" (cierra y vuelve a TakePOS para cobrar e imprimir).
-	function renderCart() {
+	function renderCart(cartData) {
 		var cart = $('#pkCart');
 		if (!cart) { return; }
 
@@ -141,7 +144,8 @@
 			'</div>' +
 			'</div>';
 
-		fetchJSON(API + '?action=getCart&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE))
+		(cartData ? Promise.resolve(cartData)
+			: fetchJSON(API + '?action=getCart&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE)))
 			.then(function (d) {
 				var lines = d.lines || [];
 				var itemCount = d.itemcount || 0;
@@ -222,8 +226,14 @@
 		var grid = $('#pkGrid');
 		if (grid) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#8f7fc7;padding:20px;">Cargando…</div>'; }
 
+		// Los productos de cada categoría se guardan en memoria: al volver del modal la
+		// rejilla se pinta al instante, sin pedirlos otra vez.
+		if (productsCache[catid]) {
+			renderProducts(productsCache[catid]);
+			return;
+		}
 		getNativeProducts(catid)
-			.then(function (data) { renderProducts(data || []); })
+			.then(function (data) { productsCache[catid] = data || []; renderProducts(productsCache[catid]); })
 			.catch(function (err) {
 				if (grid) { grid.innerHTML = '<div style="grid-column:1/-1;color:#e0455a;">No se pudieron cargar los productos. ' + esc(err && err.message ? err.message : '') + '</div>'; }
 			});
@@ -443,48 +453,10 @@
 		return res;
 	}
 
-	/* ---------- agregar a la venta de TakePOS ---------- */
-	function agregarProducto(idProducto, cantidad, usarInvoiceId) {
-		var invid = (usarInvoiceId !== undefined ? usarInvoiceId : invoiceid);
-		var url = BASE + '/takepos/invoice.php?action=addline&token=' + encodeURIComponent(TOKEN) +
-			'&place=' + encodeURIComponent(PLACE) + '&invoiceid=' + encodeURIComponent(invid) +
-			'&idproduct=' + idProducto + '&qty=' + cantidad;
-		return fetch(url, { credentials: 'same-origin' });
-	}
-
-	/* Resuelve el id real de la factura provisional por la ref (PROV-POS<term>-<place>). */
-	function resolveInvoiceId() {
-		return fetchJSON(API + '?action=getInvoice&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE))
-			.then(function (d) { return d.invoiceid || 0; })
-			.catch(function () { return 0; });
-	}
-
-	function idDeUltimaLinea(invid) {
-		var id = (invid || invoiceid);
-		if (!id) { return Promise.resolve(0); }
-		return fetchJSON(BASE + '/takepos/ajax/ajax.php?action=getInvoice&token=' + encodeURIComponent(TOKEN) + '&id=' + encodeURIComponent(id))
-			.then(function (d) {
-				var lines = d.lines || [];
-				return lines.length ? lines[lines.length - 1].id : 0;
-			})
-			.catch(function () { return 0; });
-	}
-
-	function anotarDetalle(idLinea, texto, invid) {
-		var body = new URLSearchParams();
-		body.append('action', 'addnote');
-		body.append('token', TOKEN);
-		body.append('invoiceid', (invid || invoiceid));
-		body.append('idline', idLinea);
-		body.append('addnote', texto);
-		return fetch(BASE + '/takepos/invoice.php', { method: 'POST', body: body, credentials: 'same-origin' });
-	}
-
-	function guardarSabores(idLinea, saborIds) {
-		return fetch(API + '?action=setLineSabores&token=' + encodeURIComponent(TOKEN) + '&place=' + encodeURIComponent(PLACE) +
-			'&lineid=' + encodeURIComponent(idLinea) + '&sabores=' + encodeURIComponent(saborIds), { credentials: 'same-origin' });
-	}
-
+	/* ---------- agregar a la venta de TakePOS ----------
+	   Una sola petición (picker/api.php action=addOrder): el servidor agrega el producto
+	   con su detalle y sabores y cada adicional ("para <producto>") con la misma lógica de
+	   precio del TakePOS, y devuelve el carrito ya actualizado. */
 	function confirmAddProduct(shouldClose) {
 		var p = current.product;
 		if (activeFlavors().length > 0 && current.selected.flavors.length === 0) {
@@ -495,70 +467,60 @@
 		var root = $('#picker-root');
 		root.innerHTML = '<div class="pk-loading">Agregando a la orden…</div>';
 
-		var desc = construirDescripcion();
-		var extras = extrasElegidos();
 		// Ids de los sabores de la máquina (solo servidos): el trigger de recetas descuenta
 		// el mix de cada sabor al validar el ticket.
 		var saborIds = (current.grupo === 'mix') ? activeFlavors().filter(function (f) {
 			return current.selected.flavors.indexOf(f.label) !== -1;
 		}).map(function (f) { return f.id; }).join(',') : '';
 
-		agregarProducto(p.id, current.qty, invoiceid)
-			.then(function () {
-				return resolveInvoiceId().then(function (realId) { return { realId: realId }; });
-			})
-			.then(function (ctx) {
-				invoiceid = ctx.realId || invoiceid;
-				if ((desc || saborIds) && invoiceid) {
-					return idDeUltimaLinea(invoiceid).then(function (idLinea) {
-						if (idLinea <= 0) { return; }
-						return (desc ? anotarDetalle(idLinea, desc, invoiceid) : Promise.resolve())
-							.then(function () { if (saborIds) { return guardarSabores(idLinea, saborIds); } });
-					});
-				}
-			})
-			.then(function () {
-				var chain = Promise.resolve();
-				// Cada adicional va en su línea, anotada con el producto al que acompaña.
-				extras.forEach(function (ex) {
-					chain = chain.then(function () { return agregarProducto(ex.id, ex.qty, invoiceid); })
-						.then(function () { return idDeUltimaLinea(invoiceid); })
-						.then(function (idLinea) { if (idLinea > 0) { return anotarDetalle(idLinea, 'para ' + p.label, invoiceid); } });
-				});
-				return chain;
-			})
-			.then(function () {
-				// Si se pidió finalizar (debeClose), agregamos y cerramos para cobrar.
-				// Si no, NOS quedamos en el popup para seguir agregando productos.
+		var body = new URLSearchParams();
+		body.append('action', 'addOrder');
+		body.append('token', TOKEN);
+		body.append('place', PLACE);
+		body.append('idproduct', p.id);
+		body.append('qty', current.qty);
+		body.append('desc', construirDescripcion());
+		body.append('sabores', saborIds);
+		body.append('extras', extrasElegidos().map(function (ex) { return ex.id + ':' + ex.qty; }).join(','));
+
+		fetchJSON(API, { method: 'POST', body: body })
+			.then(function (d) {
+				if (!d || d.error || !d.cart) { throw new Error(d && d.error ? d.error : 'Sin respuesta'); }
+				invoiceid = d.cart.invoiceid || invoiceid;
+				// Si se pidió finalizar, cerramos para cobrar; si no, seguimos en el popup.
 				if (shouldClose) {
 					closeAndReload();
 				} else {
 					showToast('Producto agregado a la orden.');
-					backToGrid(); // renderCats() ya refresca el carrito (renderCart).
+					backToGrid(d.cart);
 				}
 			})
-			.catch(function () {
-				root.innerHTML = '<div class="pk-error">No se pudo agregar a la orden. Inténtalo de nuevo.</div>';
+			.catch(function (err) {
+				root.innerHTML = '<div class="pk-error">No se pudo agregar a la orden. ' + esc(err && err.message ? err.message : '') +
+					'<br><button type="button" class="pk-btn-ghost" id="pkVolver">Volver</button></div>';
+				var v = $('#pkVolver', root);
+				if (v) { v.onclick = function () { backToGrid(); }; }
 			});
 	}
 
 	// Vuelve a la rejilla al terminar de agregar un producto, conservando la
-	// categoría activa cuando es posible.
-	function backToGrid() {
+	// categoría activa. cartData: carrito devuelto por addOrder (sin volver a pedirlo).
+	function backToGrid(cartData) {
 		current = null; // Ya no hay producto en el modal: "Finalizar orden" solo cerrará.
-		if (catsCache.length && activeCatId) {
-			renderCats(catsCache);
-			// Reactivar la pestaña que estaba activa
-			var btns = $$('.pk-cat-btn');
-			btns.forEach(function (b) { b.classList.remove('active'); });
-			var active = btns.filter(function (b) { return b.dataset.cat === activeCatId; })[0];
-			if (active) { active.classList.add('active'); loadCategoryProducts(activeCatId); }
-			else { loadCategoryProducts(catsCache[0].id); }
-		} else {
+		if (!catsCache.length) {
 			loadData();
+			return;
+		}
+		renderCats(catsCache, cartData);
+		var btns = $$('.pk-cat-btn');
+		btns.forEach(function (b) { b.classList.remove('active'); });
+		var active = btns.filter(function (b) { return b.dataset.cat === String(activeCatId); })[0] || btns[0];
+		if (active) {
+			active.classList.add('active');
+			activeCatId = active.dataset.cat;
+			loadCategoryProducts(activeCatId);
 		}
 	}
-
 	// Finalizar orden: cierra el popup y recarga el Ticket de TakePOS para cobrar.
 	function closeAndReload() {
 		try {

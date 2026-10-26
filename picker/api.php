@@ -238,48 +238,180 @@ if ($action == 'getInvoice') {
 	exit;
 }
 
-if ($action == 'getCart') {
-	// Resumen de la orden (carrito): lee la factura provisional del TakePOS,
-	// la misma fuente de verdad del ticket nativo. Devuelve líneas + totales.
-	require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
-	$term = empty($_SESSION['takeposterminal']) ? 1 : $_SESSION['takeposterminal'];
-	$place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : 0);
-
-	$invoice = new Facture($db);
-	$ret = $invoice->fetch(0, '(PROV-POS'.$term.'-'.$place.')');
-	if ($ret <= 0) {
-		echo json_encode(array('invoiceid' => 0, 'lines' => array(), 'itemcount' => 0, 'total_ttc' => 0, 'total_formated' => ''));
-		exit;
+/**
+ * Carrito (líneas + totales) de una factura provisional, como lo pinta el popup.
+ *
+ * @param Facture|null $invoice
+ * @return array
+ */
+function pickerCartData($invoice)
+{
+	global $langs, $conf;
+	if (!$invoice || $invoice->id <= 0) {
+		return array('invoiceid' => 0, 'lines' => array(), 'itemcount' => 0, 'total_ttc' => 0, 'total_formated' => '');
 	}
-
 	$lines = array();
 	$itemcount = 0;
-	if (is_array($invoice->lines) && count($invoice->lines)) {
-		// Mostrar los más recientes arriba, como el carrito del TakePOS.
-		foreach (array_reverse($invoice->lines) as $line) {
-			$lines[] = array(
-				'id' => (int) $line->id,
-				'label' => $line->product_label,
-				'ref' => $line->product_ref,
-				'desc' => $line->desc,
-				'qty' => (float) $line->qty,
-				'total_ttc' => $line->total_ttc,
-				'total_ttc_formated' => price($line->total_ttc, 1, $langs, 1, -1, -1, $conf->currency),
-			);
-			$itemcount += (float) $line->qty;
-		}
+	// Los más recientes arriba, como el carrito del TakePOS.
+	foreach (array_reverse((array) $invoice->lines) as $line) {
+		$lines[] = array(
+			'id' => (int) $line->id,
+			'label' => $line->product_label,
+			'ref' => $line->product_ref,
+			'desc' => $line->desc,
+			'qty' => (float) $line->qty,
+			'total_ttc' => $line->total_ttc,
+			'total_ttc_formated' => price($line->total_ttc, 1, $langs, 1, -1, -1, $conf->currency),
+		);
+		$itemcount += (float) $line->qty;
 	}
-
-	$total_ttc = (float) $invoice->total_ttc;
-
-	echo json_encode(array(
+	return array(
 		'invoiceid' => (int) $invoice->id,
 		'lines' => $lines,
 		'itemcount' => $itemcount,
-		'total_ttc' => $total_ttc,
-		'total_formated' => price($total_ttc, 1, $langs, 1, -1, -1, $conf->currency),
+		'total_ttc' => (float) $invoice->total_ttc,
+		'total_formated' => price((float) $invoice->total_ttc, 1, $langs, 1, -1, -1, $conf->currency),
 		'currency' => $conf->currency,
-	));
+	);
+}
+
+if ($action == 'getCart') {
+	// Resumen de la orden (carrito): lee la factura provisional del TakePOS,
+	// la misma fuente de verdad del ticket nativo.
+	require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+	$term = empty($_SESSION['takeposterminal']) ? 1 : $_SESSION['takeposterminal'];
+	$place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : 0);
+	$invoice = new Facture($db);
+	echo json_encode(pickerCartData($invoice->fetch(0, '(PROV-POS'.$term.'-'.$place.')') > 0 ? $invoice : null));
+	exit;
+}
+
+/**
+ * Factura provisional del terminal y mesa; si no existe la crea igual que el TakePOS
+ * (takepos/invoice.php: cliente por defecto del terminal, fecha del día del usuario,
+ * ref "(PROV-POS<term>-<place>)").
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @return Facture|null
+ */
+function pickerFacturaParaAgregar($db, $user)
+{
+	global $conf;
+	require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+	include_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
+	$term = empty($_SESSION['takeposterminal']) ? 1 : $_SESSION['takeposterminal'];
+	$place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : 0);
+	$invoice = new Facture($db);
+	if ($invoice->fetch(0, '(PROV-POS'.$term.'-'.$place.')') > 0) {
+		return ($invoice->status == Facture::STATUS_DRAFT ? $invoice : null);
+	}
+	$invoice = new Facture($db);
+	$invoice->socid = getDolGlobalInt('CASHDESK_ID_THIRDPARTY'.$term);
+	if ($invoice->socid <= 0) {
+		return null;
+	}
+	$now = dol_now('tzuserrel');
+	$invoice->date = dol_mktime(0, 0, 0, (int) dol_print_date($now, '%m', 'gmt'), (int) dol_print_date($now, '%d', 'gmt'), (int) dol_print_date($now, '%Y', 'gmt'), 'tzserver');
+	$invoice->module_source = 'takepos';
+	$invoice->pos_source = (string) $term;
+	$invoice->entity = !empty($_SESSION["takeposinvoiceentity"]) ? $_SESSION["takeposinvoiceentity"] : $conf->entity;
+	$id = $invoice->create($user);
+	if ($id <= 0) {
+		return null;
+	}
+	$db->query("UPDATE ".MAIN_DB_PREFIX."facture SET ref = '(PROV-POS".$db->escape((string) $term)."-".$db->escape((string) $place).")' WHERE rowid = ".((int) $id));
+	$invoice->fetch($id);
+	return $invoice;
+}
+
+/**
+ * Agrega una línea de producto con la misma lógica de precio, IVA, descuento del cliente
+ * y costo (MARGIN_TYPE) que takepos/invoice.php (action=addline).
+ *
+ * @param DoliDB  $db
+ * @param Facture $invoice
+ * @param int     $idproduct
+ * @param float   $qty
+ * @param string  $desc     Detalle de la línea ('' = descripción del producto, como el TakePOS)
+ * @param array   $options  Extrafields de la línea (options_*)
+ * @return int    id de la línea (>0) o <=0 si error
+ */
+function pickerAgregarLinea($db, $invoice, $idproduct, $qty, $desc, $options = array())
+{
+	global $mysoc;
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+	$prod = new Product($db);
+	if ($prod->fetch($idproduct) <= 0 || $qty <= 0) {
+		return -1;
+	}
+	$customer = new Societe($db);
+	$customer->fetch($invoice->socid);
+	$dp = $prod->getSellPrice($mysoc, $customer, 0);
+	$tva_tx = $dp['tva_tx'];
+	$tva_npr = (int) $dp['tva_npr'];
+	$pa_ht = '';
+	$fk_fournprice = 0;
+	if (getDolGlobalString('MARGIN_TYPE') == 'pmp' && !empty($prod->pmp)) {
+		$pa_ht = $prod->pmp;
+	} elseif (getDolGlobalString('MARGIN_TYPE') == 'costprice' && !empty($prod->cost_price)) {
+		$pa_ht = $prod->cost_price;
+	} elseif (getDolGlobalString('MARGIN_TYPE') && !in_array(getDolGlobalString('MARGIN_TYPE'), array('pmp', 'costprice'))) {
+		require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.product.class.php';
+		$pf = new ProductFournisseur($db);
+		if ($pf->find_min_price_product_fournisseur($idproduct, $qty) > 0) {
+			$fk_fournprice = $pf->product_fourn_price_id;
+			$pa_ht = $pf->fourn_unitprice_with_discount;
+		}
+	}
+	return $invoice->addline(($desc !== '' ? $desc : $prod->description), $dp['pu_ht'], $qty, $tva_tx,
+		get_localtax($tva_tx, 1, $customer, $mysoc, $tva_npr), get_localtax($tva_tx, 2, $customer, $mysoc, $tva_npr),
+		$idproduct, (float) $customer->remise_percent, '', 0, 0, 0, 0, (empty($dp['price_base_type']) ? 'HT' : $dp['price_base_type']),
+		$dp['pu_ttc'], $prod->type, -1, 0, '', 0, '', $fk_fournprice, $pa_ht, '', $options, 100, 0, null, 0);
+}
+
+if ($action == 'addOrder') {
+	// Agrega en UNA petición el producto del modal (con su detalle y sabores) y sus
+	// adicionales ("para <producto>"), y devuelve el carrito. Antes eran ~11 peticiones
+	// en serie, 6 de ellas a takepos/invoice.php (que pinta el ticket completo).
+	$idproduct = GETPOSTINT('idproduct');
+	$qty = (float) price2num(GETPOST('qty', 'alpha'));
+	$desc = dol_string_nohtmltag(GETPOST('desc', 'restricthtml'));
+	$sabores = implode(',', array_filter(array_map('intval', explode(',', GETPOST('sabores', 'alphanohtml')))));
+	$extras = array();
+	foreach (explode(',', GETPOST('extras', 'alphanohtml')) as $par) {
+		$kv = explode(':', $par);
+		if (count($kv) == 2 && (int) $kv[0] > 0 && (float) $kv[1] > 0) {
+			$extras[(int) $kv[0]] = (float) $kv[1];
+		}
+	}
+	$prod = new Product($db);
+	if ($idproduct <= 0 || $qty <= 0 || $prod->fetch($idproduct) <= 0) {
+		echo json_encode(array('error' => 'Producto no válido'));
+		exit;
+	}
+
+	$db->begin();
+	$invoice = pickerFacturaParaAgregar($db, $user);
+	$ok = ($invoice !== null);
+	if ($ok) {
+		$opts = ($sabores !== '' ? array('options_sabrooski_sabores' => $sabores) : array());
+		$ok = (pickerAgregarLinea($db, $invoice, $idproduct, $qty, $desc, $opts) > 0);
+	}
+	foreach ($extras as $eid => $eqty) {
+		if ($ok) {
+			$ok = (pickerAgregarLinea($db, $invoice, $eid, $eqty, 'para '.$prod->label) > 0);
+		}
+	}
+	if (!$ok) {
+		$db->rollback();
+		echo json_encode(array('error' => 'No se pudo agregar a la orden'.($invoice && $invoice->error ? ': '.$invoice->error : '')));
+		exit;
+	}
+	$db->commit();
+	$invoice->fetch($invoice->id);
+	echo json_encode(array('ok' => 1, 'cart' => pickerCartData($invoice)));
 	exit;
 }
 
