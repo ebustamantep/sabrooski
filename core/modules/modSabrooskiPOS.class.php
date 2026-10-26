@@ -338,13 +338,13 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->menu = array();
 		$r = 0;
 		// La entrada al POS es el botón "Toma de orden" dentro del TakePOS nativo
-		// (hook ActionButtons). El único menú propio es ReportesVentas.
+		// (hook ActionButtons). El único menú propio es SabrooskiVentas.
 		$perm = '$user->admin || $user->hasRight("sabrooskipos", "reportes", "read")';
 		$this->menu[$r++] = array(
 			'fk_menu' => '',
 			'type' => 'top',
-			'titre' => 'ReportesVentas',
-			'prefix' => img_picto('', 'bill', 'class="pictofixedwidth valignmiddle"'),
+			'titre' => 'SabrooskiVentas',
+			'prefix' => img_picto('', 'fa-ice-cream', 'class="pictofixedwidth valignmiddle"'),
 			'mainmenu' => 'reportesventas',
 			'leftmenu' => '',
 			'url' => '/sabrooskipos/reportes/index.php',
