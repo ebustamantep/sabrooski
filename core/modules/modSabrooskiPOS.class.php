@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.8';
+		$this->version = '1.9';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -547,6 +547,11 @@ class modSabrooskiPOS extends DolibarrModules
 		//$result3=$extrafields->addExtraField('sabrooskipos_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result4=$extrafields->addExtraField('sabrooskipos_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result5=$extrafields->addExtraField('sabrooskipos_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+
+		// v1.9: el almacén principal era de MovilStock; se copia si aún no está configurado.
+		if (!getDolGlobalInt('SABROOSKIPOS_ID_WAREHOUSE_MAIN') && getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN')) {
+			dolibarr_set_const($this->db, 'SABROOSKIPOS_ID_WAREHOUSE_MAIN', (string) getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN'), 'chaine', 0, '', $conf->entity);
+		}
 
 		// Permissions
 		$this->remove($options);

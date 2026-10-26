@@ -11,7 +11,7 @@
  * \file    sabrooskipos/carga/index.php
  * \ingroup sabrooskipos
  * \brief   Planilla de carga del camión: insumos y congelados en el orden de la planilla.
- *          Existencia inicial / Reposición = traslado Principal → móvil (movilstock);
+ *          Existencia inicial / Reposición = traslado Principal → móvil;
  *          Entrada a Principal = compras o conteo inicial de Principal.
  *          Lógica en lib/sabrooskipos_recetas.lib.php (sabrooskiposRegistrarCarga).
  */
@@ -37,7 +37,7 @@ $fecha = GETPOST('fecha', 'alphanohtml');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 	$fecha = dol_print_date(dol_now(), '%Y-%m-%d');
 }
-$main = getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN');
+$main = sabrooskiposAlmacenPrincipal($db);
 $data = sabrooskiposRecetasLeer();
 $grupos = $data ? sabrooskiposCargaGrupos($db, $data) : array();
 
@@ -94,7 +94,7 @@ print '</form>';
 if (!$data) {
 	print '<div class="error">No se pudo leer recetas_sabrooski.json.</div>';
 } elseif ($main <= 0) {
-	print '<div class="error">Configura el almacén principal en Setup → MovilStock.</div>';
+	print '<div class="error">Configura el almacén principal en Setup → Sabrooski POS → Configuración.</div>';
 } else {
 	print '<div class="opacitymedium marginbottom">'.($tipo == 'principal'
 		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). Después se carga el móvil con "Existencia inicial" o "Reposición".'
@@ -123,6 +123,26 @@ if (!$data) {
 	print '</table></div>';
 	print '<div class="center"><input type="submit" class="button" value="Registrar '.($tipo == 'principal' ? 'entrada' : 'carga').'"></div>';
 	print '</form>';
+
+	// Últimas cargas del almacén (agrupadas por código de inventario)
+	$whh = ($tipo == 'principal' ? $main : $wh);
+	$sql = "SELECT m.inventorycode, MIN(m.datem) AS fecha, MIN(m.label) AS label, COUNT(DISTINCT m.fk_product) AS n, MIN(u.login) AS login"
+		." FROM ".MAIN_DB_PREFIX."stock_mouvement m LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = m.fk_user_author"
+		." WHERE m.fk_entrepot = ".((int) $whh)." AND m.value > 0"
+		." AND (m.inventorycode LIKE 'CARGA-%' OR m.inventorycode LIKE 'ENTRADA-%')"
+		." GROUP BY m.inventorycode ORDER BY MAX(m.rowid) DESC LIMIT 10";
+	$resql = $db->query($sql);
+	if ($resql && $db->num_rows($resql)) {
+		print '<br><div class="div-table-responsive"><table class="noborder centpercent sbr-table">';
+		print '<tr class="liste_titre"><td>Últimas cargas</td><td>Fecha</td><td class="right">Productos</td><td>Usuario</td></tr>';
+		while ($o = $db->fetch_object($resql)) {
+			$l = preg_replace('/ · .*$/u', '', (string) $o->label);
+			$url = DOL_URL_ROOT.'/product/stock/movement_list.php?search_inventorycode='.urlencode($o->inventorycode);
+			print '<tr class="oddeven"><td><a href="'.$url.'">'.dol_escape_htmltag($l).'</a> <span class="opacitymedium">'.dol_escape_htmltag($o->inventorycode).'</span></td>';
+			print '<td>'.dol_print_date($db->jdate($o->fecha), 'dayhour').'</td><td class="right">'.((int) $o->n).'</td><td>'.dol_escape_htmltag((string) $o->login).'</td></tr>';
+		}
+		print '</table></div>';
+	}
 }
 
 llxFooter();

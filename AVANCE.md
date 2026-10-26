@@ -495,3 +495,29 @@ Sirope tardaba varios segundos. Ahora:
   desde el inicio (antes, el primer agregado recargaba todo con `loadData()`).
 - Probado con un arnés CLI (transacción sin confirmar): 1 petición, ~400 ms con el arranque de
   Dolibarr; líneas, precios, IVA y sabores correctos.
+
+## 18. v1.9: sin MovilStock (2026-10-26)
+
+MovilStock sobraba: solo se usaba `movilstockCrearTraslado()` desde la carga del camión y
+la constante `MOVILSTOCK_ID_WAREHOUSE_MAIN`; sus pantallas no se usan en producción (1
+traslado, 0 producciones). Ahora:
+- `sabrooskiposTraslado()` (`lib/sabrooskipos_recetas.lib.php`): por producto, salida de
+  Principal y entrada al móvil con el mismo `inventorycode` `CARGA-AAAAMMDDhhmmss-xxxx` y
+  etiqueta "Existencia inicial dd/mm/aaaa · CARGA-…" o "Reposición …" (los reportes siguen
+  leyendo la etiqueta). Revisa existencia en Principal antes de mover. Ya no se escribe en
+  `llx_movilstock_transfer`.
+- `sabrooskiposAlmacenPrincipal()`: `SABROOSKIPOS_ID_WAREHOUSE_MAIN`; si falta, copia el de
+  MovilStock. También lo copia `init()` del módulo al activarlo. Se elige en Setup →
+  Sabrooski POS → Configuración y viaja en el paquete de migración (por ref del almacén).
+- Carga del camión: tabla "Últimas cargas" del almacén (por `inventorycode` `CARGA-`/
+  `ENTRADA-`) con enlace a la lista de movimientos de Dolibarr.
+- Local: MovilStock desactivado (sin menús ni permisos); sus tablas y movimientos
+  anteriores quedan. `test/ciclo_turno_cli.php` (ahora verifica también la salida de
+  Principal y los movimientos `CARGA-`) y `test/recetas_cli.php` → Todo OK.
+  Respaldo previo: `sabrooski_db_antes_v19.sql`.
+
+**Despliegue:** `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.9.zip`. En producción:
+instalar el zip → reactivar Sabrooski POS (copia el almacén principal) → revisar en Setup →
+Sabrooski POS que el almacén principal sea el correcto → desactivar MovilStock. Si la 1.8
+aún no está en producción, importar también `sabrooskipos_catalogo_config_20261026.json`
+(Simular e Importar).

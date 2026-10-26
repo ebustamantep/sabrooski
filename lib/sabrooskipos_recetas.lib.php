@@ -741,8 +741,64 @@ function sabrooskiposFecharMovimientos($db, $fecha, $hora, $where)
 }
 
 /**
+ * Almacén principal (de donde sale la carga del camión). Si aún no está configurado toma
+ * el que tenía MovilStock (MOVILSTOCK_ID_WAREHOUSE_MAIN) y lo guarda como propio.
+ *
+ * @param DoliDB $db
+ * @return int  id del almacén o 0
+ */
+function sabrooskiposAlmacenPrincipal($db)
+{
+	global $conf;
+	$main = getDolGlobalInt('SABROOSKIPOS_ID_WAREHOUSE_MAIN');
+	if ($main <= 0 && getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN') > 0) {
+		$main = getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN');
+		dolibarr_set_const($db, 'SABROOSKIPOS_ID_WAREHOUSE_MAIN', (string) $main, 'chaine', 0, '', $conf->entity);
+	}
+	return $main;
+}
+
+/**
+ * Traslado entre almacenes: por producto, salida del origen y entrada al destino con la
+ * misma etiqueta y código de inventario. Revisa existencia antes de mover. No abre ni
+ * cierra transacción.
+ *
+ * @param DoliDB           $db
+ * @param User             $user
+ * @param int              $src
+ * @param int              $dst
+ * @param array<int,float> $lines   [fk_product => qty] (qty > 0)
+ * @param string           $label
+ * @param string           $code    inventorycode de los movimientos
+ * @param array            $errors  (por referencia)
+ * @return int   nº de productos trasladados (>0) o <0 si error
+ */
+function sabrooskiposTraslado($db, $user, $src, $dst, $lines, $label, $code, &$errors)
+{
+	foreach ($lines as $pid => $q) {
+		$p = new Product($db);
+		if ($p->fetch($pid) <= 0) {
+			$errors[] = 'Producto '.$pid.' no encontrado';
+			return -1;
+		}
+		$p->load_stock('novirtual');
+		$avail = isset($p->stock_warehouse[$src]->real) ? (float) $p->stock_warehouse[$src]->real : 0;
+		if ($q > $avail + 0.00001) {
+			$errors[] = $p->ref.': no hay suficiente en el almacén de origen (hay '.price2num($avail).', se piden '.price2num($q).').';
+			return -1;
+		}
+		if ($p->correct_stock($user, $src, $q, 1, $label, $p->pmp, $code) <= 0
+			|| $p->correct_stock($user, $dst, $q, 0, $label, $p->pmp, $code) <= 0) {
+			$errors[] = $p->ref.': '.$p->error;
+			return -1;
+		}
+	}
+	return count($lines);
+}
+
+/**
  * Registra una carga de la planilla.
- *  - 'inicial' / 'reposicion': traslado Principal → móvil (movilstock), etiqueta
+ *  - 'inicial' / 'reposicion': traslado Principal → móvil, etiqueta
  *    "Existencia inicial …" o "Reposición …" (reglas del reporte del turno).
  *  - 'principal': entrada directa a Principal (compras o conteo inicial de Principal).
  *
@@ -753,11 +809,11 @@ function sabrooskiposFecharMovimientos($db, $fecha, $hora, $where)
  * @param array  $cantidades  [fk_product => cantidad en unidad de control (g, uds)]
  * @param string $fecha       'YYYY-MM-DD'
  * @param array  $errors      (por referencia)
- * @return int   >0 OK (id del traslado o nº de entradas), <0 error
+ * @return int   >0 OK (nº de productos), <0 error
  */
 function sabrooskiposRegistrarCarga($db, $user, $tipo, $dst, $cantidades, $fecha, &$errors)
 {
-	$main = getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN');
+	$main = sabrooskiposAlmacenPrincipal($db);
 	$lines = array();
 	foreach ($cantidades as $pid => $q) {
 		$q = round((float) $q, 4);
@@ -770,7 +826,7 @@ function sabrooskiposRegistrarCarga($db, $user, $tipo, $dst, $cantidades, $fecha
 		return -1;
 	}
 	if ($main <= 0) {
-		$errors[] = 'Falta el almacén principal de MovilStock (MOVILSTOCK_ID_WAREHOUSE_MAIN).';
+		$errors[] = 'Falta el almacén principal (Setup → Sabrooski POS → Configuración).';
 		return -1;
 	}
 	$fechatxt = dol_print_date(dol_stringtotime($fecha.' 12:00:00'), '%d/%m/%Y');
@@ -793,13 +849,13 @@ function sabrooskiposRegistrarCarga($db, $user, $tipo, $dst, $cantidades, $fecha
 		$errors[] = 'Elige el almacén del móvil.';
 		return -1;
 	}
-	dol_include_once('/movilstock/lib/movilstock.lib.php');
-	$label = ($tipo == 'inicial' ? 'Existencia inicial' : 'Reposición').' '.$fechatxt.' ·';
-	$id = movilstockCrearTraslado($db, $user, $main, $dst, $lines, $label, $errors);
-	if ($id > 0) {
-		sabrooskiposFecharMovimientos($db, $fecha, ($tipo == 'inicial' ? '07:00:00' : '12:00:00'), "origintype = 'movilstock' AND fk_origin = ".((int) $id));
+	$code = 'CARGA-'.dol_print_date(dol_now(), '%Y%m%d%H%M%S').'-'.substr(uniqid(), -4); // único aunque haya dos cargas en el mismo segundo
+	$label = ($tipo == 'inicial' ? 'Existencia inicial' : 'Reposición').' '.$fechatxt.' · '.$code;
+	$n = sabrooskiposTraslado($db, $user, $main, $dst, $lines, $label, $code, $errors);
+	if ($n > 0) {
+		sabrooskiposFecharMovimientos($db, $fecha, ($tipo == 'inicial' ? '07:00:00' : '12:00:00'), "inventorycode = '".$db->escape($code)."'");
 	}
-	return $id;
+	return $n;
 }
 
 /**

@@ -160,7 +160,7 @@ function sabrooskiposExportConfig($db)
 			if (isset($accref[(int) $v])) {
 				$constants[] = array('name' => $n, 'kind' => 'account', 'value' => $accref[(int) $v]);
 			}
-		} elseif (preg_match('/^CASHDESK_ID_WAREHOUSE/', $n)) {
+		} elseif (preg_match('/^(CASHDESK_ID_WAREHOUSE|SABROOSKIPOS_ID_WAREHOUSE_MAIN)/', $n)) {
 			if (isset($whref[(int) $v])) {
 				$constants[] = array('name' => $n, 'kind' => 'warehouse', 'value' => $whref[(int) $v]);
 			}

@@ -57,6 +57,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos.lib.php';
 
 // Translations
@@ -92,6 +93,7 @@ if ($action == 'set' && $user->admin) {
 			'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
 			'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
 			'SABROOSKIPOS_TVA_TX' => GETPOST('SABROOSKIPOS_TVA_TX', 'alpha'),
+			'SABROOSKIPOS_ID_WAREHOUSE_MAIN' => GETPOSTINT('SABROOSKIPOS_ID_WAREHOUSE_MAIN'),
 		);
 		foreach ($consts as $key => $val) {
 			$res = dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
@@ -147,6 +149,7 @@ if ($action == 'set' && $user->admin) {
  * View
  */
 $form = new Form($db);
+$formproduct = new FormProduct($db);
 $help_url = '';
 $title = "SabrooskiPOSSetup";
 
@@ -258,6 +261,11 @@ if ($terminal == 0) {
 	print img_object('', 'vat', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiTvaTx"), $langs->trans("SabrooskiTvaTxDesc"));
 	print '</td><td>';
 	print '<input type="text" name="SABROOSKIPOS_TVA_TX" value="'.dol_escape_htmltag(getDolGlobalString('SABROOSKIPOS_TVA_TX', '16')).'" size="5"> %';
+	print '</td></tr>';
+
+	// Almacén principal: origen de la carga del camión
+	print '<tr class="oddeven"><td>Almacén principal (origen de la carga del camión)</td><td>';
+	print $formproduct->selectWarehouses(getDolGlobalInt('SABROOSKIPOS_ID_WAREHOUSE_MAIN'), 'SABROOSKIPOS_ID_WAREHOUSE_MAIN', '', 1, 0, 0, '', 0, 0, array(), 'maxwidth500');
 	print '</td></tr>';
 
 	print '<tr><td colspan="2" class="opacitymedium">'.$langs->trans("SabrooskiNoteGlobalConfig").'</td></tr>';

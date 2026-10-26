@@ -1,5 +1,15 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.9
+
+- Sin MovilStock: la carga del camión hace el traslado Principal → móvil con movimientos
+  de stock propios (código `CARGA-…`), revisando existencia en Principal.
+- Almacén principal en Setup → Sabrooski POS → Configuración
+  (`SABROOSKIPOS_ID_WAREHOUSE_MAIN`; al activar el módulo se copia el de MovilStock) y en
+  el paquete de migración.
+- Carga del camión: lista de las últimas cargas con enlace a sus movimientos.
+- Popup: agregar a la orden en una sola petición (`action=addOrder`).
+
 ## 1.8
 
 - Servidos por receta (`recetas_sabrooski.json`, de "Estructura de Costos Sistema.xlsx"):
@@ -9,7 +19,7 @@
 - Insumos con costo y unidad de control; productos nuevos (especiales Susy, Cocosette y
   Maní cubierto, Brownie con helado, Helado de coco, Barquillón congelado) fuera de venta
   hasta tener precio.
-- Carga del camión (traslado Principal → móvil con movilstock) y cierre por conteo.
+- Carga del camión (traslado Principal → móvil) y cierre por conteo.
 - ReportesVentas: "Insumos del móvil" y "Costos y margen".
 - Migración: el catálogo lleva kits, costos y constantes; extrafields antes de la
   transacción (Simular ya no guarda nada).
