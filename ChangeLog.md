@@ -1,5 +1,17 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.10
+
+- Regalías y dañadas (SabrooskiVentas → Regalías y dañadas): las registra el encargado al
+  cierre con el PIN de quien autoriza (permiso nuevo "Autorizar regalías y dañadas (PIN)",
+  cada autorizador fija su PIN en "Mi PIN de autorización"). Proceso completo: un servido
+  baja kit + mix de los sabores; una bandeja o golosina baja ella misma. Se pueden anular
+  (también con PIN) y devuelven al móvil.
+- Tabla `llx_sabrooskipos_baja` (producto, sabores, motivo, quién registró y autorizó, costo).
+- Reportes: regalías/dañadas de servidos en Inventario de ventas; sirope/topping de las
+  bajas en el teórico de Insumos; sección "Regalías y dañadas" con su costo en Costos y
+  margen; detalle con motivo y autorizador en Observaciones.
+
 ## 1.9
 
 - Sin MovilStock: la carga del camión hace el traslado Principal → móvil con movimientos

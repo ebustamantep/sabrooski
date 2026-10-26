@@ -142,11 +142,14 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem < '".$d0."' THEN m.value ELSE 0 END), 0) AS s0,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem <= '".$d1."' THEN m.value ELSE 0 END), 0) AS s1,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.origintype <> 'facture' AND m.label LIKE 'Existencia inicial%' THEN m.value ELSE 0 END), 0) AS inicial,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value > 0 AND m.label NOT LIKE 'Existencia inicial%' AND m.label NOT LIKE 'Ajuste%' THEN m.value ELSE 0 END), 0) AS rep,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Regal%' THEN -m.value ELSE 0 END), 0) AS regalo,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Dañad%' THEN -m.value ELSE 0 END), 0) AS danadas,";
+		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value > 0 AND m.label NOT LIKE 'Existencia inicial%' AND m.label NOT LIKE 'Ajuste%'"
+			." AND m.label NOT LIKE 'Regal%' AND m.label NOT LIKE 'Dañad%' THEN m.value ELSE 0 END), 0) AS rep,";
+		// Regalías y dañadas netas (una anulada entra en positivo con la misma etiqueta + "anulada").
+		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Regal%' THEN -m.value ELSE 0 END), 0) AS regalo,";
+		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Dañad%' THEN -m.value ELSE 0 END), 0) AS danadas,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Crédito%' THEN -m.value ELSE 0 END), 0) AS credito_mov,";
-		$sql .= " GROUP_CONCAT(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Regal%' THEN m.label END SEPARATOR ' | ') AS regalo_labels";
+		$sql .= " GROUP_CONCAT(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Regal%' AND m.value < 0"
+			." AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."stock_mouvement ma WHERE ma.inventorycode = CONCAT(m.inventorycode, '-A')) THEN m.label END SEPARATOR ' | ') AS regalo_labels";
 		$sql .= " FROM ".MAIN_DB_PREFIX."product p JOIN ".MAIN_DB_PREFIX."stock_mouvement m ON m.fk_product = p.rowid AND m.fk_entrepot = ".((int) $wh);
 		$sql .= " WHERE p.entity = ".$entity;
 		$sql .= " GROUP BY p.rowid, p.ref, p.label, p.price_ttc, p.tosell";
@@ -166,6 +169,26 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 				'vd' => 0, 'vd_conos' => 0, 'vd_total' => 0, 'del' => 0, 'del_conos' => 0);
 		}
 	}
+	// Regalías y dañadas registradas (carga/bajas.php). Un servido no tiene stock propio
+	// (baja por receta): se cuenta aquí. Lo que tiene stock ya lo contó su movimiento.
+	$data['bajas'] = array();
+	if ($wh > 0) {
+		require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_bajas.lib.php';
+		$data['bajas'] = sabrooskiposBajasDia($db, $wh, $fecha);
+		foreach ($data['bajas'] as $b) {
+			$r = sabrooskiposReceta($db, $b['fk_product']);
+			if (!$r['kit'] && $r['mix_g'] <= 0) {
+				continue;
+			}
+			if (!isset($data['productos'][$b['fk_product']])) {
+				$data['productos'][$b['fk_product']] = array('ref' => $b['ref'], 'label' => $b['label'], 'precio' => 0, 'tosell' => 1, 'ex' => 0, 'rep' => 0,
+					'regalo' => 0, 'danadas' => 0, 'credito_mov' => 0, 'cierre' => 0, 'regalo_conos' => 0, 'categoria' => '', 'sin_stock' => 1,
+					'vd' => 0, 'vd_conos' => 0, 'vd_total' => 0, 'del' => 0, 'del_conos' => 0);
+			}
+			$data['productos'][$b['fk_product']][$b['tipo'] == 'regalia' ? 'regalo' : 'danadas'] += $b['qty'];
+		}
+	}
+
 	foreach ($data['lineas'] as $l) {
 		if ($l['fk_product'] <= 0) {
 			continue;
@@ -369,8 +392,14 @@ function sabrooskiposReportePagoMovil($data)
 			$obs[] = array($t['ref'], 'Venta a crédito'.($t['cliente'] ? ' – '.$t['cliente'] : '').' por '.price($t['total'], 0, '', 1, -1, 2).' $');
 		}
 	}
-	foreach ($data['productos'] as $p) {
-		if ($p['regalo'] > 0) {
+	$conBaja = array();
+	foreach ($data['bajas'] as $b) {
+		$conBaja[$b['fk_product']] = 1;
+		$obs[] = array('', ($b['tipo'] == 'regalia' ? 'Regalía' : 'Dañada').': '.$b['label'].' × '.price2num($b['qty']).($b['sabores_txt'] ? ' ('.$b['sabores_txt'].')' : '')
+			.' – '.$b['motivo'].' (autorizó '.$b['autoriza'].', costo '.price($b['costo'], 0, '', 1, -1, 2).' $)');
+	}
+	foreach ($data['productos'] as $pid => $p) {
+		if ($p['regalo'] > 0 && !isset($conBaja[$pid])) {
 			$obs[] = array('', 'Regalía: '.$p['label'].' × '.$p['regalo']);
 		}
 	}
@@ -536,7 +565,7 @@ function sabrooskiposReporteInventario($data)
 		$pu = ($r['vd'] ? $r['vd_total'] / $r['vd'] : ($r['venta'] ? $r['precio'] : ''));
 		if ($r['sin_stock']) {
 			// Hecho al momento (especiales, adicionales): solo la venta, sin control de stock.
-			$filas[] = array($r['label'].' (sin stock propio)', '', '', '', $r['vd'], $pu, $r['vd_total'], '', $r['credito'] ?: '', '', '', '', '', '', '');
+			$filas[] = array($r['label'].' (sin stock propio)', '', '', '', $r['vd'], $pu, $r['vd_total'], $r['regalo'] ?: '', $r['credito'] ?: '', $r['danadas'] ?: '', ($auto ?: ''), '', '', '', '');
 		} else {
 			$filas[] = array($r['label'], $r['ex'], $r['rep'], $total, $r['vd'], $pu,
 				$r['vd_total'], $r['regalo'], $r['credito'], $r['danadas'], $auto, $r['cierre'], $segun, $registradas, $segun - $registradas);
@@ -763,6 +792,14 @@ function sabrooskiposReporteInsumos($data)
 			$mixSinSabor += $r['mix_g'] * $l['qty'];
 		}
 	}
+	// Sirope, topping y pirulín/oreo de las regalías y dañadas: no se mueven al registrarlas
+	// (se ven en el conteo), así que cuentan en el teórico. El resto ya está en "Regalías y dañadas".
+	foreach ($data['bajas'] as $b) {
+		$c = sabrooskiposConsumoLinea($db, $b['fk_product'], $b['qty'], $b['sabores']);
+		$teoSirope += $c['sirope_g'];
+		$teoTopping += $c['topping_g'];
+		$teoPiru += $c['pirulin_oreo'];
+	}
 
 	// Descontado por las ventas (movimientos con origen factura) en el día.
 	$ventasMov = array();
@@ -894,10 +931,20 @@ function sabrooskiposReporteCostos($data)
 	$cols2 = array(array('Producto', 'text'), array('Precio con IVA ($)', 'usd'), array('Precio sin IVA ($)', 'usd'), array('Costo receta ($)', 'usd'),
 		array('Margen %', 'num'), array('Detalle', 'text'));
 
+	// Regalías y dañadas: costo (de receta al registrarlas).
+	$filas3 = array();
+	$tot3 = array('TOTAL', '', '', '', 0);
+	foreach ($data['bajas'] as $b) {
+		$filas3[] = array($b['label'].($b['sabores_txt'] ? ' ('.$b['sabores_txt'].')' : ''), ($b['tipo'] == 'regalia' ? 'Regalía' : 'Dañada'), $b['qty'], $b['motivo'].' · autorizó '.$b['autoriza'], $b['costo']);
+		$tot3[4] += $b['costo'];
+	}
+	$cols3 = array(array('Producto', 'text'), array('Tipo', 'text'), array('Uds', 'num'), array('Motivo', 'text'), array('Costo ($)', 'usd'));
+
 	return array('titulo' => 'SABROOSKI – COSTOS Y MARGEN', 'hoja' => 'Costos',
 		'nota' => 'Costo de receta: insumos fijos × costo + mix, sirope y topping × costo de referencia por gramo + pirulín/oreo. Margen sobre la venta sin IVA.',
 		'secciones' => array(
 			array('titulo' => 'Ventas del turno', 'columnas' => $cols, 'filas' => $filas, 'total' => ($filas ? $tot : null)),
+			array('titulo' => 'Regalías y dañadas', 'columnas' => $cols3, 'filas' => $filas3, 'total' => ($filas3 ? $tot3 : null)),
 			array('titulo' => 'Costo por receta', 'columnas' => $cols2, 'filas' => $filas2, 'total' => null),
 		));
 }

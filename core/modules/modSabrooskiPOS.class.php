@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.9';
+		$this->version = '1.10';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -331,6 +331,13 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->rights[$r][4] = 'carga';
 		$this->rights[$r][5] = 'write'; // $user->hasRight('sabrooskipos', 'carga', 'write')
 		$r++;
+		$o = 4;
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 1);
+		$this->rights[$r][1] = 'Autorizar regalías y dañadas (PIN)';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'bajas';
+		$this->rights[$r][5] = 'autorizar'; // $user->hasRight('sabrooskipos', 'bajas', 'autorizar')
+		$r++;
 		/* END MODULEBUILDER PERMISSIONS */
 
 
@@ -356,18 +363,19 @@ class modSabrooskiPOS extends DolibarrModules
 			'user' => 2,
 		);
 		$permcarga = '$user->admin || $user->hasRight("sabrooskipos", "carga", "write")';
-		foreach (array('carga' => 'Carga del camión', 'cierre' => 'Cierre (conteo)') as $code => $label) {
+		$permpin = '$user->admin || $user->hasRight("sabrooskipos", "bajas", "autorizar")';
+		foreach (array('carga' => 'Carga del camión', 'cierre' => 'Cierre (conteo)', 'bajas' => 'Regalías y dañadas', 'pin' => 'Mi PIN de autorización') as $code => $label) {
 			$this->menu[$r++] = array(
 				'fk_menu' => 'fk_mainmenu=reportesventas',
 				'type' => 'left',
 				'titre' => $label,
 				'mainmenu' => 'reportesventas',
 				'leftmenu' => 'reportesventas_'.$code,
-				'url' => '/sabrooskipos/carga/'.($code == 'carga' ? 'index' : 'cierre').'.php',
+				'url' => '/sabrooskipos/carga/'.($code == 'carga' ? 'index' : $code).'.php',
 				'langs' => 'sabrooskipos@sabrooskipos',
 				'position' => 1000 + $r,
 				'enabled' => 'isModEnabled("sabrooskipos")',
-				'perms' => $permcarga,
+				'perms' => ($code == 'pin' ? $permpin : $permcarga),
 				'target' => '',
 				'user' => 2,
 			);

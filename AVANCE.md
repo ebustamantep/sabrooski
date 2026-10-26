@@ -521,3 +521,38 @@ instalar el zip → reactivar Sabrooski POS (copia el almacén principal) → re
 Sabrooski POS que el almacén principal sea el correcto → desactivar MovilStock. Si la 1.8
 aún no está en producción, importar también `sabrooskipos_catalogo_config_20261026.json`
 (Simular e Importar).
+## 19. v1.10: regalías y dañadas con PIN (2026-10-26)
+
+Decisiones del usuario: las registra **el encargado al cierre**; necesitan **autorización
+con PIN**; deben ser un **proceso completo** (un servido regalado o caído baja su receta).
+El crédito queda pendiente (el usuario va a consultar cómo se cobra).
+
+- `carga/bajas.php` (menú SabrooskiVentas → Regalías y dañadas, permiso `carga->write`):
+  móvil + fecha del turno; tipo (Regalía/Dañada), producto (venta + insumos, sin sabores ni
+  adicionales), sabores si el producto es de mix (respeta `max_sabores`), cantidad,
+  motivo/a quién y PIN. Lista del turno con costo, quién autorizó y botón Anular (con PIN).
+- PIN: permiso nuevo `bajas->autorizar`; cada autorizador fija el suyo en
+  `carga/pin.php` (menú "Mi PIN de autorización"), 4–8 dígitos, `password_hash` en
+  `llx_user_param` (SABROOSKIPOS_PIN), único entre autorizadores; para cambiarlo pide el
+  actual. 5 PIN errados bloquean 10 min (por sesión).
+- `lib/sabrooskipos_bajas.lib.php`: `sabrooskiposBajaRegistrar()` baja con `correct_stock`
+  lo que da `sabrooskiposBajaMovimientos()` (servido: kit + mix por sabor vía
+  `sabrooskiposConsumoLinea`; sin receta: el producto), etiqueta "Regalía: …" / "Dañadas:
+  …" e inventorycode `BAJA-…`, fechado a las 21:00 del turno; guarda la fila en
+  `llx_sabrooskipos_baja` con el costo de receta. `sabrooskiposBajaAnular()` devuelve lo
+  neto con "Regalía anulada: …" (`BAJA-…-A`) y marca status 9.
+- Reportes: regalías/dañadas por etiqueta ahora netas (las anuladas restan) y fuera de
+  Reposición; las de servidos se cuentan desde la tabla (Inventario de ventas y Camión);
+  Insumos suma al teórico el sirope/topping/pirulín de las bajas (no se mueven: se ven en
+  el conteo); Costos y margen tiene la sección "Regalías y dañadas"; Observaciones lista
+  cada una con motivo, autorizador y costo.
+- Prueba `test/bajas_cli.php` (todo revertido): PIN, validaciones, regalía de 2 Sundae
+  Chocolate-Fresa (5 insumos), dañada de una bandeja, los 5 reportes y anulación → Todo OK.
+  `ciclo_turno_cli`, `recetas_cli` y `reportes_cli` (10/10 igual) siguen OK.
+  Respaldo previo: `sabrooski_db_antes_v110.sql`.
+- Notas: las bandejas no tienen `cost_price` (su costo sale 0); el Sundae tiene existencia
+  vieja en Movil01PM (59, de antes de los kits).
+
+**Despliegue:** `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.10.zip`. En producción:
+instalar el zip → reactivar Sabrooski POS (crea la tabla, el permiso y los menús) → dar el
+permiso "Autorizar regalías y dañadas (PIN)" a quien autoriza y que cada uno fije su PIN.
