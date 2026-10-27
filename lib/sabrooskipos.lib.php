@@ -763,6 +763,49 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 		}
 	}
 
+	// 3d) Depurar: lo que en el destino no viene en el paquete se retira igual que un
+	// producto retirado; las categorías que sobran se borran si quedaron vacías.
+	if (!empty($data['depurar'])) {
+		$report['depurados'] = array();
+		$sobran = array();
+		$resql = $db->query("SELECT ref, label FROM ".MAIN_DB_PREFIX."product WHERE entity IN (".getEntity('product').") ORDER BY ref");
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			if (!isset($prodIdByRef[$o->ref])) {
+				$sobran[(string) $o->ref] = (string) $o->label;
+			}
+		}
+		foreach ($sobran as $ref => $plabel) {
+			$r = sabrooskiposRetireProduct($db, $user, $ref, $report);
+			$report['depurados'][] = $ref.' '.$plabel.' → '.$r;
+		}
+		$labels = array();
+		foreach ($cats as $c) {
+			$labels[(string) $c['label']] = 1;
+		}
+		$resql = $db->query("SELECT c.rowid, c.label,"
+			." (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."categorie_product cp WHERE cp.fk_categorie = c.rowid) AS nprod,"
+			." (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."categorie h WHERE h.fk_parent = c.rowid) AS nhijas"
+			." FROM ".MAIN_DB_PREFIX."categorie c WHERE c.type = ".((int) Categorie::TYPE_PRODUCT)." AND c.entity = ".((int) $conf->entity)." ORDER BY c.fk_parent DESC");
+		$catSobran = array();
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			if (!isset($labels[$o->label])) {
+				$catSobran[] = $o;
+			}
+		}
+		foreach ($catSobran as $o) {
+			if ($o->nprod > 0 || $o->nhijas > 0) {
+				$report['depurados'][] = 'Categoría "'.$o->label.'" → se deja (tiene '.$o->nprod.' productos y '.$o->nhijas.' subcategorías)';
+				continue;
+			}
+			$cat = new Categorie($db);
+			if ($cat->fetch($o->rowid) > 0 && $cat->delete($user) > 0) {
+				$report['depurados'][] = 'Categoría "'.$o->label.'" → borrada';
+			} else {
+				$report['errores'][] = 'Categoría "'.$o->label.'" no se pudo borrar: '.$cat->error;
+			}
+		}
+	}
+
 	// 4) Constantes (por label / ref / valor)
 	if (!empty($data['root_category_label']) && isset($idbyLabel[$data['root_category_label']])) {
 		dolibarr_set_const($db, 'TAKEPOS_ROOT_CATEGORY_ID', (string) $idbyLabel[$data['root_category_label']], 'chaine', 0, '', $conf->entity);
@@ -818,29 +861,32 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
  * @param User   $user
  * @param string $ref
  * @param array  $report  Reporte (por referencia)
- * @return void
+ * @return string  'borrado' | 'desactivado (usado en documentos)' | 'ya estaba fuera de venta' | 'no existe'
  */
 function sabrooskiposRetireProduct($db, $user, $ref, &$report)
 {
 	$p = new Product($db);
 	if ($p->fetch(0, $ref) <= 0) {
-		return;
+		return 'no existe';
 	}
 	if (!$p->isObjectUsed($p->id)) {
 		$db->query("DELETE FROM ".MAIN_DB_PREFIX."product_stock WHERE fk_product = ".((int) $p->id));
 		$db->query("DELETE FROM ".MAIN_DB_PREFIX."stock_mouvement WHERE fk_product = ".((int) $p->id));
 		if ($p->delete($user) > 0) {
 			$report['notas'][] = 'borrado: '.$ref;
-			return;
+			return 'borrado';
 		}
 	}
+	$res = 'ya estaba fuera de venta';
 	if ($p->status || $p->status_buy) {
 		$p->status = 0;
 		$p->status_buy = 0;
 		$p->update($p->id, $user);
 		$report['notas'][] = 'desactivado (usado en documentos): '.$ref;
+		$res = 'desactivado (usado en documentos)';
 	}
 	$p->setCategories(array());
+	return $res;
 }
 
 /**

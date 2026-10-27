@@ -1,5 +1,12 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.11
+
+- Migración → Importar: opción **Depurar**. Los productos del destino que no vienen en el
+  paquete se borran si nunca se usaron; si tienen documentos quedan fuera de venta y sin
+  categorías. Las categorías que sobran se borran si quedan vacías. El reporte lista cada uno.
+- `test/migracion_paquete_cli.php import … --depurar`.
+
 ## 1.10
 
 - Regalías y dañadas (SabrooskiVentas → Regalías y dañadas): las registra el encargado al

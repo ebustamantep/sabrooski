@@ -556,3 +556,25 @@ El crédito queda pendiente (el usuario va a consultar cómo se cobra).
 **Despliegue:** `C:\laragon\www\sabrooski_deploy\module_sabrooskipos-1.10.zip`. En producción:
 instalar el zip → reactivar Sabrooski POS (crea la tabla, el permiso y los menús) → dar el
 permiso "Autorizar regalías y dañadas (PIN)" a quien autoriza y que cada uno fije su PIN.
+
+## 20. v1.11: replicar el catálogo local en producción y depurar (2026-10-26)
+
+El usuario quiere producción con exactamente los productos de local. La importación ya
+convergía los productos del paquete (nombre, precio, costo, IVA, stock, categorías,
+extrafields y kits) y retiraba la lista fija `retired_refs`, pero no tocaba los productos
+que solo existen en el destino.
+- `sabrooskiposImportCatalogo()` paso 3d (si `catalogo.depurar`): cada producto del destino
+  que no viene en el paquete pasa por `sabrooskiposRetireProduct()` (borra si no se usa en
+  documentos, con su stock; si se usa, fuera de venta/compra y sin categorías; ahora devuelve
+  qué hizo); las categorías de producto que no vienen se borran si quedan vacías. Corre
+  después de los kits para que un insumo que salió de una receta pueda borrarse.
+  Reporte en `catalogo.depurados`.
+- `admin/migracion_import.php`: casilla "Depurar"; sección "Depuración" en el reporte.
+- Paquete: `C:\laragon\www\sabrooski_deploy\sabrooskipos_catalogo_config_20261026b.json`
+  (105 productos, 25 constantes, sin turnos). Simulado con `--depurar` contra
+  `sabrooski_prodtest`: 0 errores, 21 productos creados, 84 existentes; depurados solo los 5
+  del prototipo (ya fuera de venta, tienen tickets).
+
+**En producción:** respaldo → instalar `module_sabrooskipos-1.11.zip` → reactivar → Setup →
+Sabrooski POS → Migración → subir el JSON 20261026b, marcar Depurar → **Simular** y revisar
+la sección "Depuración" → Importar.

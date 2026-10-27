@@ -94,6 +94,10 @@ if (($action == 'simular' || $action == 'importar') && $user->admin) {
 		$report = array('errores' => array(), 'notas' => array(), 'config' => array(), 'tickets' => array());
 		// Extrafields antes de la transacción (ALTER TABLE = commit implícito en MySQL).
 		sabrooskiposImportExtrafields($db, (isset($data['catalogo']) && is_array($data['catalogo'])) ? $data['catalogo'] : array(), $report);
+		$depurar = (GETPOST('depurar', 'int') == 1);
+		if ($depurar && isset($data['catalogo']) && is_array($data['catalogo'])) {
+			$data['catalogo']['depurar'] = 1;
+		}
 		$antes = sabrooskiposSnapshot($db);
 		$db->begin();
 		$res = sabrooskiposImportPaquete($db, $user, $data, $report);
@@ -134,7 +138,11 @@ print '<tr class="oddeven"><td class="titlefield">Paquete JSON</td><td><input ty
 if (is_readable($tmpfile)) {
 	print ' <span class="opacitymedium">(o se usa el último archivo subido)</span>';
 }
-print '</td></tr></table>';
+print '</td></tr>';
+print '<tr class="oddeven"><td>Depurar</td><td><label><input type="checkbox" name="depurar" value="1"'.(GETPOST('depurar', 'int') == 1 ? ' checked' : '').'> '
+	.'Retirar de esta base los productos que no vienen en el paquete</label> <span class="opacitymedium">(se borran si nunca se usaron; si tienen tickets o facturas '
+	.'quedan fuera de venta y sin categoría. Las categorías que sobren se borran si quedan vacías)</span></td></tr>';
+print '</table>';
 print '<div class="center">';
 print '<button type="submit" class="button" name="action" value="simular">Simular (no guarda)</button> ';
 print '<button type="submit" class="button button-save" name="action" value="importar" onclick="return confirm(\'¿Importar el paquete en esta base de datos?\');">Importar</button>';
@@ -156,6 +164,7 @@ if ($report !== null) {
 		($simular ? 'SIMULACIÓN' : 'IMPORTACIÓN').' – origen' => array($sourceinfo),
 		'Errores' => $report['errores'],
 		'Catálogo: '.count($cat['categorias_creadas']).' categorías creadas, '.count($cat['productos_creados']).' productos creados, '.count($cat['productos_existentes']).' existentes' => $cat['notas'],
+		'Depuración: productos y categorías que no vienen en el paquete' => (isset($cat['depurados']) ? $cat['depurados'] : array()),
 		'Configuración del POS y del popup' => $report['config'],
 		'Notas' => $report['notas'],
 		'Tickets (origen → destino)' => $report['tickets'],
