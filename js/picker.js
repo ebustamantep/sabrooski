@@ -19,6 +19,8 @@
 	'use strict';
 
 	var BASE = '', API = '', PLACE = '0', invoiceid = '', TOKEN = '', P_socid = '';
+	// Tasa de la segunda moneda (Bs por $), la última registrada; 0 = mostrar solo $.
+	var TASA = 0, MONEDA2 = 'Bs';
 	var products = [];        // productos de la categoría activa
 	var current = null;       // estado del modal (producto + selección)
 	var flavors = [];
@@ -55,6 +57,16 @@
 			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 	function fmtUsd(n) { return '$' + Number(n || 0).toFixed(2); }
+	// Monto en Bs (USD × tasa) con formato venezolano: "Bs 2.250,00". Vacío sin tasa.
+	function fmtBs(n) {
+		if (!TASA) { return ''; }
+		return MONEDA2 + ' ' + (Number(n || 0) * TASA).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
+	// Precio destacado en Bs y debajo, pequeño, el equivalente en $. Sin tasa: solo $.
+	function dualHtml(usd, usdTxt, cls) {
+		if (!TASA) { return '<div class="' + cls + '">' + esc(usdTxt) + '</div>'; }
+		return '<div class="' + cls + '">' + esc(fmtBs(usd)) + '</div><div class="pk-usd">' + esc(usdTxt) + '</div>';
+	}
 
 	/* ---------- cargar datos ----------
 	   Las categorías, las listas de sabores (mix/bandejas) y los adicionales vienen
@@ -139,7 +151,10 @@
 			'<div class="pk-cart-lines" id="pkCartLines"><div class="pk-empty">Cargando…</div></div>' +
 			'<div class="pk-cart-foot">' +
 				'<div class="pk-totals-row"><span>Artículos</span><span id="pkItemCount">0</span></div>' +
-				'<div class="pk-totals-row pk-grand"><span>Total</span><span id="pkTotal">$0.00</span></div>' +
+				(TASA ? '<div class="pk-totals-row pk-grand"><span>Total</span><span id="pkTotalBs">' + esc(fmtBs(0)) + '</span></div>' +
+					'<div class="pk-totals-row pk-grand-usd"><span>Equivalente en $</span><span id="pkTotal">$0.00</span></div>' +
+					'<div class="pk-totals-row pk-tasa"><span>Tasa</span><span>' + esc(MONEDA2) + ' ' + TASA.toLocaleString('es-VE', { maximumFractionDigits: 4 }) + ' por $</span></div>'
+					: '<div class="pk-totals-row pk-grand"><span>Total</span><span id="pkTotal">$0.00</span></div>') +
 				'<button type="button" class="pk-btn-finish pk-cart-pay" data-finish>Finalizar orden</button>' +
 			'</div>' +
 			'</div>';
@@ -162,7 +177,7 @@
 							'<div class="pk-line-top">' +
 								'<div><strong>' + esc(line.qty) + 'x ' + esc(label) + '</strong>' + detail + '</div>' +
 								'<div class="pk-line-right">' +
-									'<div class="pk-line-total">' + esc(line.total_ttc_formated || '') + '</div>' +
+									dualHtml(line.total_ttc, line.total_ttc_formated || '', 'pk-line-total') +
 									'<button type="button" class="pk-line-remove" data-remove="' + line.id + '">Quitar</button>' +
 								'</div>' +
 							'</div>' +
@@ -173,6 +188,8 @@
 				var itemCountEl = $('#pkItemCount', cart), totalEl = $('#pkTotal', cart);
 				if (itemCountEl) { itemCountEl.textContent = itemCount; }
 				if (totalEl) { totalEl.textContent = total; }
+				var totalBsEl = $('#pkTotalBs', cart);
+				if (totalBsEl) { totalBsEl.textContent = fmtBs(d.total_ttc); }
 				// Guardamos el total formateado para no re-fetch al finalizar.
 				if (cart) { cart.dataset.total = total; }
 
@@ -257,7 +274,7 @@
 			return '<button type="button" class="pk-card" data-id="' + p.id + '">' +
 				'<div class="pk-swatch">' + esc((label)[0] || '') + '</div>' +
 				'<h3>' + esc(label) + '</h3>' +
-				(price ? '<div class="pk-price">' + esc(price) + '</div>' : '') +
+				(price ? dualHtml(p.price_ttc, price, 'pk-price') : '') +
 				'</button>';
 		}).join('');
 
@@ -337,14 +354,14 @@
 			'<div class="pk-panel-head"><button type="button" class="pk-back" data-back>←</button>' +
 			'<h2>' + esc(p.label) + '</h2>' +
 			'<button type="button" class="pk-close" data-close>Cerrar</button></div>' +
-			'<div class="pk-sub">' + (p.description ? esc(p.description) + ' · ' : '') + esc(p.price_formated || '') + '</div>' +
+			'<div class="pk-sub">' + (p.description ? esc(p.description) + ' · ' : '') + (TASA ? '<strong>' + esc(fmtBs(p.price_ttc)) + '</strong> <small class="pk-usd">(' + esc(p.price_formated || '') + ')</small>' : esc(p.price_formated || '')) + '</div>' +
 			flavorsSection + extrasSection +
 			'<div class="pk-qty-row">' +
 				'<span class="pk-qty-label">Cantidad</span>' +
 				'<button class="pk-btn-square" id="qtyMinus">−</button>' +
 				'<span class="pk-qty-val" id="qtyVal">' + current.qty + '</span>' +
 				'<button class="pk-btn-square" id="qtyPlus">+</button>' +
-				'<span class="pk-line-total" id="lineTotalPreview">' + fmtUsd(previewTotal) + '</span>' +
+				'<span class="pk-line-total" id="lineTotalPreview">' + (TASA ? esc(fmtBs(previewTotal)) + '<small class="pk-usd">' + fmtUsd(previewTotal) + '</small>' : fmtUsd(previewTotal)) + '</span>' +
 			'</div>' +
 			'<div class="pk-actions">' +
 				'<button type="button" class="pk-btn-finish" data-finish>Finalizar orden</button>' +
@@ -400,7 +417,7 @@
 
 		current.adicionals.forEach(function (a) {
 			var qty = current.extras[a.id] || 0;
-			var priceTxt = a.price_formated ? '<span class="pk-extra-price">+' + esc(a.price_formated) + '</span>' : '';
+			var priceTxt = a.price_formated ? '<span class="pk-extra-price">+' + (TASA ? '<strong>' + esc(fmtBs(a.price_ttc)) + '</strong> · ' : '') + esc(a.price_formated) + '</span>' : '';
 			html += '<div class="pk-extra-row">' +
 				'<span class="pk-extra-name" title="' + esc(a.label) + '">' + esc(a.label) + '</span>' +
 				priceTxt +
@@ -578,6 +595,8 @@
 		invoiceid = cfg.invoiceid || '';
 		TOKEN = cfg.token || '';
 		P_socid = cfg.socid || '';
+		TASA = Number(cfg.tasa) || 0;
+		MONEDA2 = cfg.moneda2 || 'Bs';
 		loadData();
 	}
 

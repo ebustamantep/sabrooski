@@ -76,7 +76,8 @@ print 'Fecha del turno <input type="date" name="fecha" value="'.dol_escape_htmlt
 print '</form>';
 
 print '<div class="opacitymedium marginbottom">Escribe lo que queda en el camión al cerrar (el mix en kg). Lo que dejes vacío no se toca. '
-	.'Siropes y toppings: la diferencia es el consumo del turno. El resto ya lo descontaron las ventas: la diferencia queda como ajuste '
+	.'Topping y sirope: pesa todo junto y escribe los gramos. Pirulín y Oreo: la diferencia es el consumo del turno. '
+	.'El resto (también topping y sirope) ya lo descontaron las ventas: la diferencia queda como ajuste '
 	.'y se ve en ReportesVentas → Insumos del móvil.</div>';
 
 print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';

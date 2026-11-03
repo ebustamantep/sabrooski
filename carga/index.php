@@ -98,7 +98,8 @@ if (!$data) {
 } else {
 	print '<div class="opacitymedium marginbottom">'.($tipo == 'principal'
 		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). Después se carga el móvil con "Existencia inicial" o "Reposición".'
-		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en kg.').'</div>';
+		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en kg. '
+			.'Topping y sirope van a granel, en gramos (todas las variedades juntas).').'</div>';
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="guardar">';

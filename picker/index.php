@@ -86,6 +86,21 @@ $arrayofcss = array(
 $term = empty($_SESSION['takeposterminal']) ? 1 : $_SESSION['takeposterminal'];
 $socid = getDolGlobalInt('CASHDESK_ID_THIRDPARTY'.$term);
 
+// Tasa de la segunda moneda (Bs): la última registrada (la edita el widget de multimoneda).
+// Sin tasa, el popup muestra solo la moneda principal.
+$tasa = 0;
+$moneda2 = '';
+if (isModEnabled('multicurrency')) {
+	$sql = "SELECT m.code, r.rate FROM ".MAIN_DB_PREFIX."multicurrency_rate r JOIN ".MAIN_DB_PREFIX."multicurrency m ON m.rowid = r.fk_multicurrency";
+	$sql .= " WHERE m.entity IN (".getEntity('multicurrency').") AND m.code <> '".$db->escape($conf->currency)."'";
+	$sql .= " ORDER BY r.date_sync DESC, r.rowid DESC LIMIT 1";
+	$resql = $db->query($sql);
+	if ($resql && ($o = $db->fetch_object($resql))) {
+		$tasa = (float) $o->rate;
+		$moneda2 = (in_array($o->code, array('VEF', 'VES')) ? 'Bs' : (string) $o->code);
+	}
+}
+
 $head = '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>';
 
 // picker.js se carga al final del body (NO en el head), para que window.PICKER ya exista.
@@ -101,7 +116,9 @@ window.PICKER = {
 	place: <?php echo json_encode($place); ?>,
 	invoiceid: <?php echo (int) $invoiceid; ?>,
 	token: <?php echo json_encode($token); ?>,
-	socid: <?php echo json_encode($socid); ?>
+	socid: <?php echo json_encode($socid); ?>,
+	tasa: <?php echo json_encode($tasa); ?>,
+	moneda2: <?php echo json_encode($moneda2); ?>
 };
 </script>
 <body class="sabrooski-picker">

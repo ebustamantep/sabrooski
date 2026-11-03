@@ -308,3 +308,11 @@
 	.pk-layout { grid-template-columns: 1fr; }
 	.pk-cart { position: static; max-height: none; }
 }
+
+/* Dos monedas: Bs destacado (clase del precio) y debajo, pequeño, el equivalente en $ */
+.pk-usd { font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+.pk-card .pk-usd { margin-top: 1px; }
+.pk-line-total .pk-usd { display: block; text-align: right; }
+.pk-line-right .pk-usd { text-align: right; }
+.pk-totals-row.pk-grand-usd { font-size: 13px; font-weight: 600; color: #6b7280; }
+.pk-totals-row.pk-tasa { font-size: 11px; color: #9ca3af; }

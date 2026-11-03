@@ -106,7 +106,7 @@
     {"titulo": "Vasos, conos y envases", "unidad": "uds", "factor": 1, "categorias": ["Envases"]},
     {"titulo": "Siropes", "unidad": "g", "factor": 1, "categorias": ["Sirope"]},
     {"titulo": "Toppings", "unidad": "", "factor": 1, "categorias": ["Topping"]},
-    {"titulo": "Golosinas y complementos", "unidad": "uds", "factor": 1, "categorias": ["Golosinas", "Complementos"]},
+    {"titulo": "Individual y complementos", "unidad": "uds", "factor": 1, "categorias": ["Individual", "Golosinas", "Complementos"]},
     {"titulo": "Desechables", "unidad": "uds", "factor": 1, "categorias": ["Desechables"]},
     {"titulo": "Congelados", "unidad": "uds", "factor": 1, "categorias": ["Bandejas 500 g", "Sundae congelado", "Empaquetado"]}
   ]

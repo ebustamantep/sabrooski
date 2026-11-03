@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.11';
+		$this->version = '1.13';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -396,6 +396,22 @@ class modSabrooskiPOS extends DolibarrModules
 				'user' => 2,
 			);
 		}
+		// Manual de usuario (texto en manual/manual.md)
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=reportesventas',
+			'type' => 'left',
+			'titre' => 'Manual de usuario',
+			'prefix' => img_picto('', 'fa-book', 'class="pictofixedwidth"'),
+			'mainmenu' => 'reportesventas',
+			'leftmenu' => 'reportesventas_manual',
+			'url' => '/sabrooskipos/manual/index.php',
+			'langs' => 'sabrooskipos@sabrooskipos',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("sabrooskipos")',
+			'perms' => '$user->admin || $user->hasRight("sabrooskipos", "use", "use") || $user->hasRight("sabrooskipos", "reportes", "read") || $user->hasRight("sabrooskipos", "carga", "write")',
+			'target' => '',
+			'user' => 2,
+		);
 
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
 		/*
@@ -559,6 +575,13 @@ class modSabrooskiPOS extends DolibarrModules
 		// v1.9: el almacén principal era de MovilStock; se copia si aún no está configurado.
 		if (!getDolGlobalInt('SABROOSKIPOS_ID_WAREHOUSE_MAIN') && getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN')) {
 			dolibarr_set_const($this->db, 'SABROOSKIPOS_ID_WAREHOUSE_MAIN', (string) getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN'), 'chaine', 0, '', $conf->entity);
+		}
+
+		// v1.12: el ticket en pantalla del TakePOS muestra bajo el producto la primera línea
+		// de su descripción, donde la Toma de orden anota los sabores. Sin esta constante
+		// (no tiene casilla en el setup del TakePOS) el detalle queda solo en el tooltip.
+		if (!getDolGlobalInt('TAKEPOS_SHOW_N_FIRST_LINES')) {
+			dolibarr_set_const($this->db, 'TAKEPOS_SHOW_N_FIRST_LINES', '1', 'chaine', 0, '', $conf->entity);
 		}
 
 		// Permissions

@@ -1,5 +1,20 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.13
+
+- **Topping y sirope a granel:** un insumo en gramos para cada uno (`INS-TOPG`, `INS-SIRG`), sin
+  variedades. Bajan al vender según los gramos del producto y de los adicionales Topping y
+  Sirope (también en regalías y dañadas). Setup → Ajustes → **Pasar a granel** crea los
+  productos y pasa la existencia de las variedades; Oreo y Pirulín siguen en unidades.
+- Inventario de ventas: columna **Por receta** (lo que gastaron las ventas por receta); los
+  servidos salen "(por receta)"; las salidas de tickets borrados siguen como diferencia.
+- Botones de Excel y de descarga del paquete con token CSRF (fallaban en producción).
+- Categoría **Individual** (antes Golosinas) para lo que se vende suelto y baja del camión al
+  venderse: golosinas, Oreo, Pirulín, **Agua mineral** (IND-001). `test/individual_cli.php`.
+- Migración → **Reset de datos** (simular / borrar con confirmación): borra ventas, inventario,
+  productos y categorías para cargar el catálogo de local en limpio. Conserva usuarios,
+  terceros, cuentas, almacenes y configuración. `test/reset_datos_cli.php`.
+
 ## 1.11
 
 - Migración → Importar: opción **Depurar**. Los productos del destino que no vienen en el

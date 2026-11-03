@@ -143,8 +143,8 @@ for ($t = 1; $t <= max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1)); $t++) {
 }
 print '</select>';
 print '<input type="submit" class="button smallpaddingimp" value="Ver">';
-print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excel">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar a Excel</a>';
-print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excelall">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar las 4 planillas</a>';
+print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excel&token='.newToken().'">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar a Excel</a>';
+print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excelall&token='.newToken().'">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar las 4 planillas</a>';
 print '</form>';
 
 if (empty($data['tickets'])) {

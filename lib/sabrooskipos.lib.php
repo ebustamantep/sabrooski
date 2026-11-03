@@ -492,6 +492,19 @@ function sabrooskiposExportCatalogo($db)
 			}
 		}
 	}
+	// Con topping y sirope a granel (INS-TOPG / INS-SIRG), sus variedades en gramos ya no se
+	// usan (quedaron fuera de compra y venta): tampoco viajan.
+	$sql = "SELECT p.ref FROM ".MAIN_DB_PREFIX."product as p";
+	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie_product as cp ON cp.fk_product = p.rowid";
+	$sql .= " JOIN ".MAIN_DB_PREFIX."categorie as c ON c.rowid = cp.fk_categorie AND c.label IN ('Topping', 'Sirope')";
+	$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product_extrafields as e ON e.fk_object = p.rowid";
+	$sql .= " WHERE p.entity = ".$entity." AND p.tosell = 0 AND p.tobuy = 0 AND COALESCE(e.unidad_control, 'g') = 'g'";
+	$sql .= " AND p.ref NOT IN ('INS-TOPG', 'INS-SIRG')";
+	$sql .= " AND EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."product as g WHERE g.ref IN ('INS-TOPG', 'INS-SIRG') AND g.entity = ".$entity.")";
+	$resql = $db->query($sql);
+	while ($resql && ($obj = $db->fetch_object($resql))) {
+		$retired[] = (string) $obj->ref;
+	}
 	$products = array_values(array_filter($products, function ($p) use ($retired) {
 		return !in_array($p['ref'], $retired);
 	}));

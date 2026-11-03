@@ -34,6 +34,12 @@ require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once __DIR__.'/sabrooskipos.lib.php';
 
+// Insumos a granel (ver sabrooskiposPasarAGranel)
+if (!defined('SABROOSKIPOS_REF_TOPPING_G')) {
+	define('SABROOSKIPOS_REF_TOPPING_G', 'INS-TOPG');
+	define('SABROOSKIPOS_REF_SIROPE_G', 'INS-SIRG');
+}
+
 /**
  * Lee el JSON de recetas del módulo.
  *
@@ -470,6 +476,14 @@ function sabrooskiposConsumoLinea($db, $pid, $qty, $sabores)
 	foreach ($r['kit'] as $hid => $hq) {
 		$out['insumos'][$hid] = (isset($out['insumos'][$hid]) ? $out['insumos'][$hid] : 0) + $hq * $qty;
 	}
+	// A granel, el topping y el sirope son insumos que bajan al vender (ya no van por conteo).
+	$gr = sabrooskiposGranelIds($db);
+	foreach (array('topping' => 'topping_g', 'sirope' => 'sirope_g') as $k => $campo) {
+		if ($gr[$k] > 0 && $out[$campo] > 0) {
+			$out['insumos'][$gr[$k]] = (isset($out['insumos'][$gr[$k]]) ? $out['insumos'][$gr[$k]] : 0) + $out[$campo];
+			$out[$campo] = 0.0;
+		}
+	}
 	if ($r['mix_g'] > 0) {
 		foreach (sabrooskiposRepartoMix($db, explode(',', (string) $sabores)) as $mid => $frac) {
 			$out['insumos'][$mid] = (isset($out['insumos'][$mid]) ? $out['insumos'][$mid] : 0) + $r['mix_g'] * $qty * $frac;
@@ -539,13 +553,13 @@ function sabrooskiposSaboresFactura($db, $facid)
 }
 
 /**
- * Mix que lleva una factura TakePOS, por insumo, según la receta y los sabores de cada
- * línea. En una nota de crédito sin sabores propios se toman los de la factura origen
+ * Mix (y topping/sirope a granel) que lleva una factura TakePOS, por insumo, según la receta
+ * y los sabores de cada línea. En una nota de crédito sin sabores propios se toman los de la factura origen
  * (misma línea de producto).
  *
  * @param DoliDB  $db
  * @param Facture $fac
- * @return array<int,float>  [id insumo mix => gramos]
+ * @return array<int,float>  [id insumo (mix o granel) => gramos]
  */
 function sabrooskiposMixFactura($db, $fac)
 {
@@ -560,11 +574,18 @@ function sabrooskiposMixFactura($db, $fac)
 		}
 	}
 	$mix = array();
+	$gr = sabrooskiposGranelIds($db);
 	foreach ((array) $fac->lines as $l) {
 		if (empty($l->fk_product)) {
 			continue;
 		}
 		$r = sabrooskiposReceta($db, $l->fk_product);
+		// Topping y sirope a granel: los gramos de la receta (o del adicional).
+		foreach (array('topping' => 'topping_g', 'sirope' => 'sirope_g') as $k => $campo) {
+			if ($gr[$k] > 0 && $r[$campo] > 0) {
+				$mix[$gr[$k]] = (isset($mix[$gr[$k]]) ? $mix[$gr[$k]] : 0) + $r[$campo] * abs((float) $l->qty);
+			}
+		}
 		if ($r['mix_g'] <= 0) {
 			continue;
 		}
@@ -612,7 +633,9 @@ function sabrooskiposAlmacenTakepos($fac)
 function sabrooskiposMoverMixFactura($db, $user, $fac, $modo)
 {
 	require_once DOL_DOCUMENT_ROOT.'/product/stock/class/mouvementstock.class.php';
+	$gr = array_flip(array_filter(sabrooskiposGranelIds($db)));
 	$etiqueta = 'Mix receta '.$fac->ref;
+	$etiquetaGr = 'Topping/sirope receta '.$fac->ref;
 	$n = 0;
 
 	if ($modo == 'validar') {
@@ -628,12 +651,13 @@ function sabrooskiposMoverMixFactura($db, $user, $fac, $modo)
 		// Lo neto ya movido para esta factura, por insumo y almacén, se deshace.
 		$movs = array();
 		$resql = $db->query("SELECT fk_product, fk_entrepot, SUM(value) AS v FROM ".MAIN_DB_PREFIX."stock_mouvement
-			WHERE origintype = 'facture' AND fk_origin = ".((int) $fac->id)." AND label LIKE 'Mix receta %'
+			WHERE origintype = 'facture' AND fk_origin = ".((int) $fac->id)." AND (label LIKE 'Mix receta %' OR label LIKE 'Topping/sirope receta %')
 			GROUP BY fk_product, fk_entrepot HAVING ABS(SUM(value)) > 0.0001");
 		while ($resql && ($o = $db->fetch_object($resql))) {
 			$movs[] = array((int) $o->fk_product, (int) $o->fk_entrepot, abs((float) $o->v), ((float) $o->v < 0 ? 'entrada' : 'salida'));
 		}
 		$etiqueta = 'Mix receta '.$fac->ref.' (reversión)';
+		$etiquetaGr = 'Topping/sirope receta '.$fac->ref.' (reversión)';
 	}
 
 	foreach ($movs as $m) {
@@ -642,10 +666,11 @@ function sabrooskiposMoverMixFactura($db, $user, $fac, $modo)
 		}
 		$mv = new MouvementStock($db);
 		$mv->setOrigin('facture', $fac->id);
+		$et = (isset($gr[$m[0]]) ? $etiquetaGr : $etiqueta);
 		if ($m[3] == 'salida') {
-			$r = $mv->livraison($user, $m[0], $m[1], $m[2], 0, $etiqueta);
+			$r = $mv->livraison($user, $m[0], $m[1], $m[2], 0, $et);
 		} else {
-			$r = $mv->reception($user, $m[0], $m[1], $m[2], 0, $etiqueta);
+			$r = $mv->reception($user, $m[0], $m[1], $m[2], 0, $et);
 		}
 		if ($r < 0) {
 			return -1;
@@ -876,8 +901,140 @@ function sabrooskiposEsDeConteo($db, $pid)
 		while ($resql && ($o = $db->fetch_object($resql))) {
 			$ids[(int) $o->fk_product] = 1;
 		}
+		// El topping y el sirope a granel bajan al vender: no son de conteo.
+		foreach (sabrooskiposGranelIds($db) as $gid) {
+			unset($ids[$gid]);
+		}
 	}
 	return isset($ids[(int) $pid]);
+}
+
+/**
+ * Topping y sirope a granel: un solo insumo en gramos para cada uno (sin variedades). Bajan
+ * al vender según la receta (gramos_topping / gramos_sirope del producto vendido, incluidos
+ * los adicionales Topping y Sirope). Ids 0 si aún no se pasó a granel.
+ *
+ * @param DoliDB $db
+ * @param bool   $recargar  volver a leer (tras crearlos)
+ * @return array{topping:int,sirope:int}
+ */
+function sabrooskiposGranelIds($db, $recargar = false)
+{
+	static $res = null;
+	if ($res === null || $recargar) {
+		$res = array('topping' => 0, 'sirope' => 0);
+		$resql = $db->query("SELECT rowid, ref FROM ".MAIN_DB_PREFIX."product WHERE ref IN ('".SABROOSKIPOS_REF_TOPPING_G."', '".SABROOSKIPOS_REF_SIROPE_G."')"
+			." AND entity IN (".getEntity('product').")");
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			$res[$o->ref == SABROOSKIPOS_REF_TOPPING_G ? 'topping' : 'sirope'] = (int) $o->rowid;
+		}
+	}
+	return $res;
+}
+
+/**
+ * Pasa toppings y siropes a granel (idempotente): crea "Topping (granel)" y "Sirope (granel)"
+ * (insumos en g, categorías Topping / Sirope, costo por gramo de referencia), suma en cada
+ * almacén la existencia de las variedades en gramos y la pasa al granel, y deja las
+ * variedades fuera de compra. Oreo y Pirulín (uds) no se tocan.
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @param array  $errors  (por referencia)
+ * @return array{creados:int,movidos:array<string,float>,variedades:int}|int  <0 si error
+ */
+function sabrooskiposPasarAGranel($db, $user, &$errors)
+{
+	global $conf;
+	require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	$pre = MAIN_DB_PREFIX;
+	$res = array('creados' => 0, 'movidos' => array(), 'variedades' => 0);
+	$defs = array(
+		'topping' => array(SABROOSKIPOS_REF_TOPPING_G, 'Topping (granel)', 'Topping', getDolGlobalString('SABROOSKIPOS_COSTO_G_TOPPING', '0.0126')),
+		'sirope' => array(SABROOSKIPOS_REF_SIROPE_G, 'Sirope (granel)', 'Sirope', getDolGlobalString('SABROOSKIPOS_COSTO_G_SIROPE', '0.0096')),
+	);
+	$code = 'GRANEL-'.dol_print_date(dol_now(), '%Y%m%d%H%M%S');
+	foreach ($defs as $k => $d) {
+		// Categoría (de productos) del grupo
+		$cat = new Categorie($db);
+		if ($cat->fetch(0, $d[2], Categorie::TYPE_PRODUCT) <= 0) {
+			$errors[] = 'Falta la categoría de productos "'.$d[2].'".';
+			return -1;
+		}
+		// Variedades en gramos de esa categoría (no el granel)
+		$var = array();
+		$resql = $db->query("SELECT p.rowid FROM ".$pre."product p JOIN ".$pre."categorie_product cp ON cp.fk_product = p.rowid"
+			." LEFT JOIN ".$pre."product_extrafields e ON e.fk_object = p.rowid"
+			." WHERE cp.fk_categorie = ".((int) $cat->id)." AND p.ref <> '".$db->escape($d[0])."' AND COALESCE(e.unidad_control, 'g') = 'g'");
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			$var[] = (int) $o->rowid;
+		}
+		// Producto a granel
+		$p = new Product($db);
+		if ($p->fetch(0, $d[0]) <= 0) {
+			$p = new Product($db);
+			$p->ref = $d[0];
+			$p->label = $d[1];
+			$p->type = Product::TYPE_PRODUCT;
+			$p->status = 0;
+			$p->status_buy = 1;
+			$p->stockable_product = 1;
+			$p->cost_price = (float) $d[3];
+			$p->description = 'Todas las variedades juntas, en gramos. Baja al vender según la receta.';
+			$p->array_options = array('options_unidad_control' => 'g');
+			if ($p->create($user) <= 0) {
+				$errors[] = $d[0].': '.$p->error.' '.implode(' ', $p->errors);
+				return -1;
+			}
+			$res['creados']++;
+		}
+		$p->setCategoriesCommon(array((int) $cat->id), Categorie::TYPE_PRODUCT, false);
+		// Existencia de las variedades → granel, por almacén
+		if ($var) {
+			$resql = $db->query("SELECT ps.fk_entrepot, ps.fk_product, ps.reel FROM ".$pre."product_stock ps"
+				." WHERE ps.fk_product IN (".implode(',', $var).") AND ABS(ps.reel) > 0.0001");
+			$porAlm = array();
+			while ($resql && ($o = $db->fetch_object($resql))) {
+				$porAlm[(int) $o->fk_entrepot][(int) $o->fk_product] = (float) $o->reel;
+			}
+			foreach ($porAlm as $wh => $items) {
+				$total = 0;
+				foreach ($items as $vid => $q) {
+					$v = new Product($db);
+					$v->fetch($vid);
+					// "Existencia inicial…": los reportes lo cuentan como existencia del día, no como carga.
+					if ($v->correct_stock($user, $wh, abs($q), ($q > 0 ? 1 : 0), 'Existencia inicial · paso a granel', 0, $code) <= 0) {
+						$errors[] = $v->ref.': '.$v->error;
+						return -1;
+					}
+					$total += $q;
+				}
+				if (abs($total) > 0.0001 && $p->correct_stock($user, $wh, abs($total), ($total > 0 ? 0 : 1), 'Existencia inicial · paso a granel', 0, $code) <= 0) {
+					$errors[] = $p->ref.': '.$p->error;
+					return -1;
+				}
+				$res['movidos'][$d[1].' → almacén '.$wh] = $total;
+			}
+			// Kits que llevan una variedad (p. ej. Especial Susy: 28 g de Susy trocitos) pasan a
+			// llevar el granel con la misma cantidad.
+			$resql = $db->query("SELECT rowid, fk_product_pere, qty FROM ".$pre."product_association WHERE fk_product_fils IN (".implode(',', $var).")");
+			while ($resql && ($o = $db->fetch_object($resql))) {
+				$ya = $db->query("SELECT rowid FROM ".$pre."product_association WHERE fk_product_pere = ".((int) $o->fk_product_pere)." AND fk_product_fils = ".((int) $p->id));
+				if ($ya && ($y = $db->fetch_object($ya))) {
+					$db->query("UPDATE ".$pre."product_association SET qty = qty + ".((float) $o->qty)." WHERE rowid = ".((int) $y->rowid));
+					$db->query("DELETE FROM ".$pre."product_association WHERE rowid = ".((int) $o->rowid));
+				} else {
+					$db->query("UPDATE ".$pre."product_association SET fk_product_fils = ".((int) $p->id)." WHERE rowid = ".((int) $o->rowid));
+				}
+				$res['kits'] = (isset($res['kits']) ? $res['kits'] : 0) + 1;
+			}
+			// Las variedades ya no se compran ni se cargan
+			$db->query("UPDATE ".$pre."product SET tobuy = 0, tosell = 0 WHERE rowid IN (".implode(',', $var).")");
+			$res['variedades'] += count($var);
+		}
+	}
+	sabrooskiposGranelIds($db, true);
+	return $res;
 }
 
 /**

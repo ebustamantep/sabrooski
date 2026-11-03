@@ -125,7 +125,7 @@ if (!$conTurnos) {
 }
 print '</table><br>';
 
-print '<div class="center"><a class="button" href="'.$_SERVER["PHP_SELF"].'?action=download&datefrom='.urlencode($datefrom).'&dateto='.urlencode($dateto).($conTurnos ? '&turnos=1' : '').'">Descargar paquete JSON</a></div>';
+print '<div class="center"><a class="button" href="'.$_SERVER["PHP_SELF"].'?action=download&token='.newToken().'&datefrom='.urlencode($datefrom).'&dateto='.urlencode($dateto).($conTurnos ? '&turnos=1' : '').'">Descargar paquete JSON</a></div>';
 print '<br><div class="opacitymedium">Archivo temporal de migración. Eliminá estas páginas cuando termines las pruebas.</div>';
 
 llxFooter();

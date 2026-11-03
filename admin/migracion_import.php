@@ -75,6 +75,34 @@ if ($action == 'reactivar' && $user->admin) {
 	}
 }
 
+// Reset: borra ventas, inventario, productos y categorías (para cargar el catálogo en limpio).
+$reset = null;
+if (($action == 'reset_simular' || $action == 'reset_borrar') && $user->admin) {
+	@set_time_limit(600);
+	$borrarDeVerdad = ($action == 'reset_borrar');
+	if ($borrarDeVerdad && GETPOST('confirmar', 'alphanohtml') !== 'BORRAR') {
+		setEventMessages('Para borrar, escribí BORRAR en la casilla de confirmación.', null, 'errors');
+	} else {
+		$reset = array('errores' => array(), 'simulacion' => !$borrarDeVerdad);
+		$antes = sabrooskiposSnapshot($db);
+		$db->begin();
+		$r = sabrooskiposResetDatos($db, $user, $reset);
+		if ($r > 0 && $borrarDeVerdad) {
+			$db->commit();
+			setEventMessages('Datos borrados. Ahora importá el paquete de catálogo de local.', null, 'mesgs');
+		} else {
+			$db->rollback();
+			$despues = sabrooskiposSnapshot($db);
+			foreach ($antes as $t => $n) {
+				if ($despues[$t] != $n) {
+					$warnings[] = 'llx_'.$t.' pasó de '.$n.' a '.$despues[$t].' registros aunque se revirtió: revisar.';
+				}
+			}
+			setEventMessages($r > 0 ? 'Simulación del reset correcta: no se borró nada.' : 'Hay errores: no se borró nada.', null, $r > 0 ? 'mesgs' : 'errors');
+		}
+	}
+}
+
 if (($action == 'simular' || $action == 'importar') && $user->admin) {
 	@set_time_limit(600);
 	$raw = '';
@@ -147,6 +175,40 @@ print '<div class="center">';
 print '<button type="submit" class="button" name="action" value="simular">Simular (no guarda)</button> ';
 print '<button type="submit" class="button button-save" name="action" value="importar" onclick="return confirm(\'¿Importar el paquete en esta base de datos?\');">Importar</button>';
 print '</div></form>';
+
+// ---- Reset de datos ----
+print '<br><form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre"><td colspan="2">Reset de datos (carga en limpio)</td></tr>';
+print '<tr class="oddeven"><td colspan="2"><b>Borra</b> todos los tickets y facturas de cliente con sus pagos y sus líneas de banco, los cierres de caja, '
+	.'las regalías y dañadas, los movimientos y existencias de stock, <b>todos los productos</b> (con kits y precios) y <b>todas las categorías de productos</b>. '
+	.'<b>Conserva</b> usuarios y permisos, terceros, cuentas bancarias, formas de pago, almacenes y la configuración. '
+	.'Después se importa arriba el paquete de catálogo de local (sin turnos). '
+	.'<br><b>Respaldá la base de datos antes.</b> Simulá primero: hace todo y lo revierte, y muestra cuánto borraría.</td></tr>';
+print '<tr class="oddeven"><td class="titlefield">Confirmación</td><td><input type="text" name="confirmar" value="" class="flat width100" autocomplete="off"> '
+	.'<span class="opacitymedium">escribí BORRAR para borrar de verdad</span></td></tr>';
+print '</table>';
+print '<div class="center">';
+print '<button type="submit" class="button" name="action" value="reset_simular">Simular reset (no borra)</button> ';
+print '<button type="submit" class="button button-delete" name="action" value="reset_borrar" onclick="return confirm(\'¿Borrar ventas, inventario, productos y categorías de esta base de datos? No se puede deshacer.\');">Borrar datos</button>';
+print '</div></form>';
+
+if ($reset !== null) {
+	print '<br>';
+	foreach ($warnings as $w) {
+		print '<div class="error">'.dol_escape_htmltag($w).'</div>';
+	}
+	print '<table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td>'.($reset['simulacion'] ? 'SIMULACIÓN del reset: se borraría' : 'Reset: se borró').'</td><td class="right">Registros</td></tr>';
+	foreach ((isset($reset['borrados']) ? $reset['borrados'] : array()) as $que => $n) {
+		print '<tr class="oddeven"><td>'.dol_escape_htmltag($que).'</td><td class="right">'.((int) $n).'</td></tr>';
+	}
+	if ($reset['errores']) {
+		print '<tr class="oddeven"><td colspan="2" class="error">'.implode('<br>', array_map('dol_escape_htmltag', $reset['errores'])).'</td></tr>';
+	}
+	print '</table>';
+}
 
 print '<br><form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';

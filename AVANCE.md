@@ -578,3 +578,125 @@ que solo existen en el destino.
 **En producción:** respaldo → instalar `module_sabrooskipos-1.11.zip` → reactivar → Setup →
 Sabrooski POS → Migración → subir el JSON 20261026b, marcar Depurar → **Simular** y revisar
 la sección "Depuración" → Importar.
+
+## 21. v1.12: manual de usuario en el menú (2026-10-27)
+
+- `manual/manual.md`: manual de usuario (Parte 1 operación diaria: carga, toma de orden,
+  cobro, regalías/dañadas, cierre; Parte 2 administración: instalación, configuración,
+  permisos, catálogo y recetas, migración, reportes; preguntas frecuentes). Es la fuente
+  del manual: se edita el .md y la página lo muestra al recargar.
+- `manual/index.php`: lo muestra con `dolMd2Html()` (Parsedown de Dolibarr), índice de
+  secciones arriba y botón Imprimir (oculta menús al imprimir). Lo ve quien tenga cualquier
+  permiso del módulo.
+- Menú SabrooskiVentas → **Manual de usuario** (último del menú izquierdo). Requiere
+  reactivar el módulo para que aparezca.
+- **Precios en $ y Bs en la Toma de orden:** `picker/index.php` pasa en `window.PICKER` la
+  última tasa de la moneda distinta de la principal (`llx_multicurrency_rate`, la misma que
+  edita el widget de multimoneda) y `picker.js` muestra el precio destacado en Bs y debajo, pequeño, el equivalente en $
+  (`fmtBs()` = $ × tasa, formato es-VE): tarjetas, detalle del producto, topping/sirope,
+  total del modal, líneas de la orden, Total en Bs con "Equivalente en $" y la tasa al pie. Sin tasa, solo $.
+  La tasa se lee al abrir el popup.
+- **Sabor visible en el ticket en pantalla:** el TakePOS solo muestra la descripción de la
+  línea (donde va el sabor) si `TAKEPOS_SHOW_N_FIRST_LINES` > 0; esa constante no tiene
+  casilla en su setup y sin ella el detalle queda en el tooltip. `init()` del módulo la
+  fija en 1 si está vacía (se aplica al reactivar). El recibo ya traía el sabor por el hook
+  `TakeposReceipt` (verificado con TC1-2610-0006/0007: "Barquillón (Chocolate-Mantecado) 1
+  Topping 1 Sirope"). Con impresora térmica (ESC/POS) la plantilla debe usar
+  `{dol_print_object_lines_with_notes}`: ese camino no pasa por el hook.
+
+### 21.1 Correcciones en producción (2026-11-03)
+
+- **CSRF en Excel:** producción tiene `MAIN_SECURITY_CSRF_WITH_TOKEN` = 3, que exige token en
+  todo GET con `action`. Los botones de Excel de ReportesVentas y "Descargar paquete JSON" de
+  Migración ahora llevan `&token=newToken()`.
+- **Inventario de ventas con servidos por receta:** un servido (Barquillón…) no tiene stock
+  propio; al venderse bajan sus insumos (cono, cucharilla, servilleta, mix) con origen
+  factura. El reporte no contaba esas salidas y las mostraba como diferencia. Ahora
+  `sabrooskiposReporteDatos()` suma `fac` (salidas de factura del día) y el reporte agrega la
+  columna **Por receta** = `fac` − lo vendido del propio producto, que entra en "Salidas
+  registradas". El servido sale como "Barquillón (por receta)"; "(sin stock propio)" queda
+  para lo que no tiene receta. Toppings y siropes siguen sin bajar al vender: su diferencia
+  es el consumo del turno (se compara en "Insumos del móvil").
+- `fac` solo cuenta movimientos de los tickets del turno (`fk_origin` en los tickets), para
+  que las salidas de tickets borrados (p. ej. TC2-2610-0046..0057 del 10/10) sigan saliendo
+  como diferencia.
+- Un producto de receta con stock propio viejo en el móvil (Sundae, Barquilla, Barquillón,
+  Tinita, Paquete de conos en Movil01PM, de antes de las recetas) se pinta "(por receta)"
+  el día que se vende sin que baje su stock; antes quedaba con diferencia −1 por venta.
+- `test/servidos_inventario_cli.php`: vende uno de cada producto de receta (12) en cada
+  terminal y verifica que no aparezcan diferencias nuevas y que cada venta se cuente. Todo OK.
+
+### 21.2 Topping y sirope a granel (2026-11-03)
+
+Decisión del usuario: sin variedades. Un insumo **Topping (granel)** (`INS-TOPG`) y otro
+**Sirope (granel)** (`INS-SIRG`), en gramos; se cargan en gramos y **bajan al vender** según la
+receta y los adicionales. (Un primer intento con totales repartidos entre variedades se
+descartó.)
+
+- `sabrooskiposPasarAGranel()` (idempotente; botón **Pasar a granel** en Setup → Ajustes y
+  `test/pasar_granel_cli.php`): crea los dos productos (en compra, no en venta, stock, `unidad_control`
+  = g, costo = `SABROOSKIPOS_COSTO_G_*`, categorías Topping / Sirope), suma por almacén la
+  existencia de las variedades en g y la pasa al granel con "Existencia inicial · paso a granel"
+  (código `GRANEL-…`; los reportes lo leen como existencia del día) y deja las variedades con
+  `tosell = tobuy = 0` (salen de Carga y Cierre). Oreo y Pirulín (uds) no cambian.
+- `sabrooskiposGranelIds()`; `sabrooskiposConsumoLinea()` pasa `topping_g`/`sirope_g` a
+  `insumos[INS-TOPG/INS-SIRG]` (así bajan también en regalías y dañadas); el trigger
+  (`sabrooskiposMixFactura`/`MoverMixFactura`) los mueve con "Topping/sirope receta <ref>" y los
+  revierte al anular. `sabrooskiposEsDeConteo()` excluye el granel: su ajuste de cierre es
+  "Ajuste cierre (conteo)" (merma).
+- Reportes: el granel es un insumo más ("Por receta" en Inventario; real vs teórico en Insumos).
+  Las variedades de días viejos se agrupan en "Toppings (g)" / "Siropes (g)"; TOTAL SIROPE /
+  TOTAL TOPPING solo salen en turnos de antes del granel.
+- Transición: el día del paso, las ventas anteriores no bajaron granel (en Insumos el teórico
+  las incluye).
+- Local: respaldo `sabrooski_backup/sabrooski_db_antes_granel_20261103.sql`; pasado a granel
+  (topping 150 / 10000 / 22035 g y sirope 100 / 8000 / 9796 g en Principal / Movil01AM /
+  Movil01PM).
+- Pruebas: `test/granel_cli.php` (paso, carga, venta con adicionales, regalía, cierre, reportes,
+  reversión) y adaptadas `ciclo_turno_cli` y `recetas_cli`. Todo OK, también servidos_inventario
+  y bajas.
+
+### 21.3 Categoría Individual (2026-11-03)
+
+Pedido del usuario: lo que se vende suelto (agua, golosinas, Oreo, Pirulín…) en una categoría
+propia, que baje de inventario al venderse (p. ej. una barquilla + un agua).
+
+- `test/individual_cli.php` (idempotente; respaldo `sabrooski_db_antes_individual_20261103.sql`):
+  la categoría **Golosinas** (hija de la raíz del POS) pasa a **Individual**; crea **IND-001 Agua
+  mineral** (stock propio en uds, en compra, fuera de venta hasta tener precio); Oreo y Pirulín
+  entran en Individual (siguen en Topping para las recetas, que se cuentan al cierre).
+- Al ser productos con stock propio y sin kit, el TakePOS los descuenta del almacén del terminal
+  al validar (como ya hacía la Samba). La Toma de orden los agrega sin pedir sabores.
+- `recetas_sabrooski.json`: grupo de carga "Individual y complementos" (Individual, Golosinas,
+  Complementos). Orden de reportes con Individual.
+- Productos nuevos individuales (p. ej. Agua 500 ml): se crean a mano con categoría Individual
+  (manual, "Otros casos"). A producción, con el paquete de catálogo.
+- Pendiente: precios de Agua mineral, Oreo, Pirulín, Pingüinito y Flaquito sueltos.
+- `test/individual_venta_cli.php`: Barquilla + 2 Agua + 1 Oreo suelto; bajan agua y oreo del
+  camión y el cono de la barquilla; Inventario sin diferencias nuevas. Todo OK.
+
+### 21.4 Reset de producción y carga en limpio (2026-11-03)
+
+Pedido del usuario: borrar la basura de pruebas en producción (productos, categorías,
+inventario y también las ventas de prueba) y cargar el catálogo de local sin inventario.
+Se conservan usuarios/permisos, terceros, cuentas, formas de pago, almacenes y configuración.
+
+- `sabrooskiposResetDatos()` (lib/sabrooskipos_migracion.lib.php; no abre transacción):
+  facturas de cliente + pagos + sus líneas de banco (`bank_url` type payment) + vínculos,
+  descuentos, índice ECM y eventos; `pos_cash_fence`, `posplus_cashsession(_line)`,
+  `sabrooskipos_baja`; `stock_mouvement`, `product_stock`, inventarios, traslados movilstock;
+  productos con `Product::delete()` (con `dir_output` apuntando a una carpeta inexistente para
+  no borrar imágenes del disco, que el rollback no devolvería); categorías de productos de las
+  hojas a la raíz; constantes por terminal del popup (`SABROOSKIPOS_CATEGORY_*N`, `…HIDDEN…N`,
+  `…PRODUCT_ADICIONAL N`), que apuntarían a ids borrados.
+- UI: Setup → Migración → **Reset de datos**: "Simular reset" y "Borrar datos" (pide escribir
+  BORRAR). CLI: `test/reset_datos_cli.php [--borrar] [--db=bd]`.
+- Exportación: no viajan las variedades de topping/sirope (con granel ya no se usan);
+  `sabrooskiposPasarAGranel()` también pasa al granel los kits que llevaban una variedad
+  (Especial Susy / Cocosette 28 g, Maní cubierto 74 g → INS-TOPG).
+- Paquete: `sabrooski_deploy/sabrooskipos_catalogo_config_20261103.json` (94 productos, 27
+  constantes, sin turnos).
+- Ensayo: `sabrooski_ensayo` (copia de `sabrooski_prodtest`): reset real + import → 94
+  productos, 57 en venta, 65 kits, 17 categorías, 0 tickets/movimientos/existencias; conserva
+  usuarios, terceros, almacenes y 6 líneas de banco ajenas a pagos. `test/reset_cli.php`
+  (local, revertido): Todo OK.

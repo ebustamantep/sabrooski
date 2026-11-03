@@ -145,6 +145,27 @@ if ($action == 'set' && $user->admin) {
 	}
 }
 
+// Pasar topping y sirope a granel (una vez; si se repite no hace nada nuevo).
+if ($action == 'granel' && $user->admin) {
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+	$errors = array();
+	$db->begin();
+	$r = sabrooskiposPasarAGranel($db, $user, $errors);
+	if (is_array($r)) {
+		$db->commit();
+		$det = array();
+		foreach ($r['movidos'] as $k => $q) {
+			$det[] = $k.': '.price(round($q, 2)).' g';
+		}
+		setEventMessages('Topping y sirope a granel: '.$r['creados'].' productos creados, '.$r['variedades'].' variedades fuera de uso.', $det, 'mesgs');
+	} else {
+		$db->rollback();
+		setEventMessages('No se pasó a granel.', $errors, 'errors');
+	}
+	header('Location: '.$_SERVER['PHP_SELF']);
+	exit;
+}
+
 /*
  * View
  */
@@ -323,6 +344,21 @@ print '<input type="submit" class="button" value="'.$langs->trans("Save").'">';
 print '</div>';
 
 print '</form>';
+
+if ($terminal == 0) {
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+	$gr = sabrooskiposGranelIds($db);
+	print '<br><div class="div-table-responsive-no-min"><table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td>Topping y sirope a granel</td><td></td></tr>';
+	print '<tr class="oddeven"><td>Un solo insumo en gramos para el topping ('.SABROOSKIPOS_REF_TOPPING_G.') y otro para el sirope ('.SABROOSKIPOS_REF_SIROPE_G.'), '
+		.'sin variedades. Se cargan en gramos y bajan al vender según la receta y los adicionales. '
+		.'El paso suma la existencia de las variedades en cada almacén y la pasa al granel; las variedades quedan fuera de uso. Oreo y Pirulín no cambian.';
+	print ($gr['topping'] && $gr['sirope'] ? '<br><b>Ya está a granel.</b> Repetirlo solo pasa lo que quede en las variedades.' : '').'</td>';
+	print '<td class="right"><form method="POST" action="'.$_SERVER['PHP_SELF'].'" onsubmit="return confirm(\'¿Pasar topping y sirope a granel? La existencia de las variedades pasa al granel.\');">';
+	print '<input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="granel">';
+	print '<input type="submit" class="button" value="Pasar a granel"></form></td></tr>';
+	print '</table></div>';
+}
 
 print '<br><div class="opacitymedium">'.$langs->trans("ModuleSabrooskiPOSDesc").'</div>';
 

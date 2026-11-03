@@ -660,3 +660,150 @@ function sabrooskiposReactivarModulo($db)
 	}
 	return $out;
 }
+
+/* ====================================================================== *
+ * Reset de producción: borrar ventas, inventario y catálogo
+ * ====================================================================== */
+
+/**
+ * Borra las ventas (facturas de cliente con sus pagos y líneas de banco), el inventario
+ * (movimientos, existencias, inventarios, traslados, cierres de caja, regalías/dañadas) y el
+ * catálogo (productos y categorías de productos) para cargar después el catálogo de local con
+ * el paquete. Conserva usuarios, terceros, cuentas, almacenes y configuración.
+ *
+ * No abre transacción: quien llama hace begin() y commit()/rollback() (así se puede simular).
+ *
+ * @param DoliDB $db
+ * @param User   $user
+ * @param array  $report  (por referencia) ['borrados' => [qué => n], 'errores' => [...]]
+ * @return int   >0 OK, <0 error
+ */
+function sabrooskiposResetDatos($db, $user, &$report)
+{
+	global $conf;
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
+	$pre = MAIN_DB_PREFIX;
+	$entity = (int) $conf->entity;
+	$report['borrados'] = array();
+	if (!isset($report['errores'])) {
+		$report['errores'] = array();
+	}
+	$hay = function ($t) use ($db, $pre) {
+		$r = $db->query("SHOW TABLES LIKE '".$db->escape($pre.$t)."'");
+		return ($r && $db->num_rows($r) > 0);
+	};
+	$borrar = function ($que, $sql) use ($db, &$report) {
+		if (!$db->query($sql)) {
+			$report['errores'][] = $que.': '.$db->lasterror();
+			return false;
+		}
+		$report['borrados'][$que] = (isset($report['borrados'][$que]) ? $report['borrados'][$que] : 0) + (int) $db->affected_rows(true);
+		return true;
+	};
+	$ids = function ($sql) use ($db) {
+		$out = array();
+		$r = $db->query($sql);
+		while ($r && ($o = $db->fetch_row($r))) {
+			$out[] = (int) $o[0];
+		}
+		return $out;
+	};
+	$en = function ($lista) {
+		return ($lista ? implode(',', $lista) : '0');
+	};
+
+	// ---- 1. Ventas ----
+	$fac = $ids("SELECT rowid FROM ".$pre."facture WHERE entity = ".$entity);
+	$pag = $ids("SELECT DISTINCT pf.fk_paiement FROM ".$pre."paiement_facture pf WHERE pf.fk_facture IN (".$en($fac).")");
+	$bank = $ids("SELECT DISTINCT fk_bank FROM ".$pre."bank_url WHERE type = 'payment' AND url_id IN (".$en($pag).")");
+	$bank = array_unique(array_merge($bank, $ids("SELECT fk_bank FROM ".$pre."paiement WHERE rowid IN (".$en($pag).") AND fk_bank > 0")));
+	$ok = true;
+	$ok = $ok && $borrar('Líneas de banco de los pagos', "DELETE FROM ".$pre."bank_url WHERE fk_bank IN (".$en($bank).")");
+	$ok = $ok && $borrar('Líneas de banco de los pagos', "DELETE FROM ".$pre."bank WHERE rowid IN (".$en($bank).")");
+	$ok = $ok && $borrar('Pagos', "DELETE FROM ".$pre."paiement_facture WHERE fk_facture IN (".$en($fac).") OR fk_paiement IN (".$en($pag).")");
+	if ($hay('paiement_extrafields')) {
+		$ok = $ok && $borrar('Pagos (campos extra)', "DELETE FROM ".$pre."paiement_extrafields WHERE fk_object IN (".$en($pag).")");
+	}
+	$ok = $ok && $borrar('Pagos', "DELETE FROM ".$pre."paiement WHERE rowid IN (".$en($pag).")");
+	$ok = $ok && $borrar('Líneas de tickets', "DELETE FROM ".$pre."facturedet_extrafields WHERE fk_object IN (SELECT rowid FROM ".$pre."facturedet WHERE fk_facture IN (".$en($fac)."))");
+	$ok = $ok && $borrar('Líneas de tickets', "DELETE FROM ".$pre."facturedet WHERE fk_facture IN (".$en($fac).")");
+	$ok = $ok && $borrar('Tickets / facturas', "DELETE FROM ".$pre."facture_extrafields WHERE fk_object IN (".$en($fac).")");
+	$ok = $ok && $borrar('Vínculos de tickets', "DELETE FROM ".$pre."element_element WHERE (sourcetype = 'facture' AND fk_source IN (".$en($fac).")) OR (targettype = 'facture' AND fk_target IN (".$en($fac)."))");
+	$ok = $ok && $borrar('Descuentos de tickets', "DELETE FROM ".$pre."societe_remise_except WHERE fk_facture IN (".$en($fac).") OR fk_facture_source IN (".$en($fac).")");
+	$ok = $ok && $borrar('Archivos de tickets (índice)', "DELETE FROM ".$pre."ecm_files WHERE src_object_type IN ('facture', 'invoice') AND src_object_id IN (".$en($fac).")");
+	$ok = $ok && $borrar('Eventos de tickets', "DELETE FROM ".$pre."actioncomm WHERE elementtype IN ('invoice', 'facture') AND fk_element IN (".$en($fac).")");
+	$ok = $ok && $db->query("UPDATE ".$pre."facture SET fk_facture_source = NULL WHERE rowid IN (".$en($fac).")");
+	$ok = $ok && $borrar('Tickets / facturas', "DELETE FROM ".$pre."facture WHERE rowid IN (".$en($fac).")");
+	foreach (array('pos_cash_fence' => 'Cierres de caja TakePOS', 'posplus_cashsession_line' => 'Cierres de caja (posplus)', 'posplus_cashsession' => 'Cierres de caja (posplus)',
+		'sabrooskipos_baja' => 'Regalías y dañadas') as $t => $que) {
+		if ($ok && $hay($t)) {
+			$ok = $borrar($que, "DELETE FROM ".$pre.$t);
+		}
+	}
+
+	// ---- 2. Inventario ----
+	foreach (array('stock_mouvement_extrafields' => 'Movimientos de stock', 'stock_mouvement' => 'Movimientos de stock', 'product_stock' => 'Existencias',
+		'inventorydet' => 'Inventarios', 'inventory' => 'Inventarios', 'movilstock_transfer_line' => 'Traslados (movilstock)', 'movilstock_transfer' => 'Traslados (movilstock)') as $t => $que) {
+		if ($ok && $hay($t)) {
+			$ok = $borrar($que, "DELETE FROM ".$pre.$t);
+		}
+	}
+	if (!$ok) {
+		return -1;
+	}
+
+	// ---- 3. Productos (con la limpieza de Dolibarr: precios, kits, categorías, extrafields…) ----
+	// Product::delete() borra también la carpeta del producto en documents/, y eso no se
+	// revierte con rollback: se apunta a una carpeta inexistente para que las imágenes
+	// queden en disco (vuelven a enlazarse al recrear el producto con la misma ref).
+	$dirOrig = $conf->product->dir_output;
+	$conf->product->dir_output = DOL_DATA_ROOT.'/sabrooskipos/temp/no-borrar-'.uniqid();
+	$n = 0;
+	$fallo = false;
+	foreach ($ids("SELECT rowid FROM ".$pre."product WHERE entity IN (".getEntity('product').")") as $pid) {
+		$p = new Product($db);
+		if ($p->fetch($pid) <= 0) {
+			continue;
+		}
+		if ($p->delete($user, 1) <= 0) {
+			$report['errores'][] = 'Producto '.$p->ref.': '.($p->error ? $p->error : 'en uso').' '.implode(' ', (array) $p->errors);
+			$fallo = true;
+			break;
+		}
+		$n++;
+	}
+	$conf->product->dir_output = $dirOrig;
+	if ($fallo) {
+		return -1;
+	}
+	$report['borrados']['Productos'] = $n;
+
+	// ---- 4. Categorías de productos (de las hojas a la raíz) ----
+	$n = 0;
+	for ($pase = 0; $pase < 20; $pase++) {
+		$hojas = $ids("SELECT c.rowid FROM ".$pre."categorie c WHERE c.type = 0 AND c.entity = ".$entity
+			." AND NOT EXISTS (SELECT 1 FROM ".$pre."categorie h WHERE h.fk_parent = c.rowid)");
+		if (!$hojas) {
+			break;
+		}
+		foreach ($hojas as $cid) {
+			$c = new Categorie($db);
+			if ($c->fetch($cid) <= 0 || $c->delete($user, 1) <= 0) {
+				$report['errores'][] = 'Categoría #'.$cid.': '.$c->error;
+				return -1;
+			}
+			$n++;
+		}
+	}
+	$report['borrados']['Categorías de productos'] = $n;
+
+	// ---- 5. Configuración por terminal del popup (sabores, toppings… de la pestaña Terminal N):
+	// apunta a ids de categorías/productos borrados y no viaja en el paquete. Sin ella el popup
+	// usa la general, que el paquete vuelve a fijar con los ids nuevos.
+	if (!$borrar('Configuración por terminal del popup (vuelve a la general)', "DELETE FROM ".$pre."const WHERE entity = ".$entity
+		." AND name REGEXP '^SABROOSKIPOS_(CATEGORY_[A-Z_]+|HIDDEN_CATEGORIES|PRODUCT_ADICIONAL)[0-9]+$'")) {
+		return -1;
+	}
+	return 1;
+}
