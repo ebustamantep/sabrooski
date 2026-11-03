@@ -324,12 +324,21 @@
 		var p = current.product;
 		var root = $('#picker-root');
 
+		// Estado del sabor según el mix del camión (api getProduct): 'sin_mix' = no alcanza
+		// para una porción (gris, no se elige); 'poco' = se está agotando (aviso "quedan N").
 		function chipRow(options, selectedArr, max, groupKey) {
 			return options.map(function (o) {
 				var sel = selectedArr.indexOf(o.label) !== -1;
+				var sinMix = o.estado === 'sin_mix';
 				var blocked = !sel && max > 1 && selectedArr.length >= max;
-				var cls = 'pk-chip' + (sel ? ' selected' : '') + ((max === 0 || blocked) ? ' disabled' : '');
-				return '<button type="button" class="' + cls + '" data-group="' + groupKey + '" data-val="' + esc(o.label) + '">' + esc(o.label) + '</button>';
+				var cls = 'pk-chip' + (sel ? ' selected' : '') + ((max === 0 || blocked || sinMix) ? ' disabled' : '') +
+					(sinMix ? ' pk-chip-sinmix' : '') + (o.estado === 'poco' ? ' pk-chip-poco' : '');
+				var nota = sinMix ? '<small class="pk-chip-nota">sin mix</small>'
+					: (o.estado === 'poco' ? '<small class="pk-chip-nota">⚠ quedan ' + esc(String(o.porciones)) + '</small>' : '');
+				return '<button type="button" class="' + cls + '" data-group="' + groupKey + '" data-val="' + esc(o.label) + '"' +
+					(sinMix ? ' data-sinmix="1" disabled title="No hay mix cargado en el camión para este sabor"' : '') +
+					(o.estado === 'poco' ? ' title="Se está agotando: alcanza para ' + esc(String(o.porciones)) + ' porciones"' : '') + '>' +
+					esc(o.label) + nota + '</button>';
 			}).join('');
 		}
 
@@ -373,6 +382,7 @@
 		$$('.pk-chip', root).forEach(function (chip) {
 			chip.addEventListener('click', function () {
 				var group = chip.dataset.group, val = chip.dataset.val;
+				if (chip.dataset.sinmix) { return; }
 				if (group === 'flavor') { toggleChoice(current.selected.flavors, val, maxFlavors); }
 				renderModal();
 			});
@@ -477,7 +487,8 @@
 	function confirmAddProduct(shouldClose) {
 		var p = current.product;
 		if (activeFlavors().length > 0 && current.selected.flavors.length === 0) {
-			alert('Selecciona al menos un sabor.');
+			var hay = activeFlavors().some(function (f) { return f.estado !== 'sin_mix'; });
+			alert(hay ? 'Selecciona al menos un sabor.' : 'No hay mix cargado en el camión para este producto. Carga el mix en Carga del camión.');
 			return;
 		}
 

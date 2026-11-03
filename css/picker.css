@@ -155,6 +155,13 @@
 }
 .pk-chip.selected { background: #7c3aed; border-color: #7c3aed; color: #fff; }
 .pk-chip.disabled { opacity: 0.35; cursor: not-allowed; }
+/* Sabor según el mix del camión: sin mix (gris) o agotándose (aviso) */
+.pk-chip-sinmix { background: #f1f1f4; border-color: #d9d9e0; color: #8a8a96; opacity: 0.7; }
+.pk-chip-poco { border-color: #f59e0b; background: #fffbeb; }
+.pk-chip-poco.selected { background: #7c3aed; border-color: #f59e0b; }
+.pk-chip-nota { display: block; font-size: 10px; font-weight: 600; line-height: 1.1; }
+.pk-chip-poco .pk-chip-nota { color: #b45309; }
+.pk-chip-poco.selected .pk-chip-nota { color: #fde68a; }
 
 /* ---------- adicionales (dos columnas) ---------- */
 .pk-extras {

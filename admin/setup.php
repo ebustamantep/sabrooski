@@ -93,6 +93,7 @@ if ($action == 'set' && $user->admin) {
 			'TAKEPOS_NUM_TERMINALS' => GETPOST('TAKEPOS_NUM_TERMINALS', 'alpha'),
 			'TAKEPOS_SORTPRODUCTFIELD' => GETPOST('TAKEPOS_SORTPRODUCTFIELD', 'alpha'),
 			'SABROOSKIPOS_TVA_TX' => GETPOST('SABROOSKIPOS_TVA_TX', 'alpha'),
+			'SABROOSKIPOS_AVISO_PORCIONES' => GETPOSTINT('SABROOSKIPOS_AVISO_PORCIONES'),
 			'SABROOSKIPOS_ID_WAREHOUSE_MAIN' => GETPOSTINT('SABROOSKIPOS_ID_WAREHOUSE_MAIN'),
 		);
 		foreach ($consts as $key => $val) {
@@ -282,6 +283,12 @@ if ($terminal == 0) {
 	print img_object('', 'vat', 'class="paddingright"').$form->textwithpicto($langs->trans("SabrooskiTvaTx"), $langs->trans("SabrooskiTvaTxDesc"));
 	print '</td><td>';
 	print '<input type="text" name="SABROOSKIPOS_TVA_TX" value="'.dol_escape_htmltag(getDolGlobalString('SABROOSKIPOS_TVA_TX', '16')).'" size="5"> %';
+	print '</td></tr>';
+
+	// Aviso de sabores que se están agotando en la Toma de orden
+	print '<tr class="oddeven"><td>Aviso de mix por agotarse</td><td>';
+	print '<input type="text" name="SABROOSKIPOS_AVISO_PORCIONES" value="'.getDolGlobalInt('SABROOSKIPOS_AVISO_PORCIONES', 10).'" size="5"> porciones o menos';
+	print ' <span class="opacitymedium">(en la Toma de orden el sabor sale con "quedan N"; sin mix para una porción sale en gris)</span>';
 	print '</td></tr>';
 
 	// Almacén principal: origen de la carga del camión

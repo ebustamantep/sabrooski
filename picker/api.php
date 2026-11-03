@@ -493,6 +493,25 @@ if ($action == 'getProduct') {
 	$grupoSabores = isset($prod->array_options['options_grupo_sabores']) ? (string) $prod->array_options['options_grupo_sabores'] : '';
 	$gramosPorcion = isset($prod->array_options['options_gramos_porcion']) ? (string) $prod->array_options['options_gramos_porcion'] : '';
 
+	// Sabores mix según el mix cargado en el camión de esta caja: sin mix para una porción →
+	// "sin_mix" (en gris); hasta SABROOSKIPOS_AVISO_PORCIONES porciones → "poco" (aviso).
+	$flavors = pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term));
+	$wh = (getDolGlobalString('CASHDESK_NO_DECREASE_STOCK'.$term) == '1' ? 0 : getDolGlobalInt('CASHDESK_ID_WAREHOUSE'.$term));
+	if ($grupoSabores === 'mix' && (float) $gramosPorcion > 0 && $wh > 0) {
+		require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+		$porc = sabrooskiposPorcionesPorSabor($db, $wh, array_map(function ($f) {
+			return $f['id'];
+		}, $flavors), (float) $gramosPorcion);
+		$aviso = getDolGlobalInt('SABROOSKIPOS_AVISO_PORCIONES', 10);
+		foreach ($flavors as $k => $f) {
+			if (isset($porc[$f['id']])) {
+				$n = (int) floor($porc[$f['id']] + 0.0001);
+				$flavors[$k]['porciones'] = $n;
+				$flavors[$k]['estado'] = ($n < 1 ? 'sin_mix' : ($n <= $aviso ? 'poco' : 'ok'));
+			}
+		}
+	}
+
 	echo json_encode(array(
 		'product' => array(
 			'id' => (int) $prod->id,
@@ -505,7 +524,7 @@ if ($action == 'getProduct') {
 			'grupo_sabores' => $grupoSabores,
 			'gramos_porcion' => $gramosPorcion,
 		),
-		'flavors' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS', $term)),
+		'flavors' => $flavors,
 		'flavors_bandejas' => pickerSimpleProducts($db, (int) sabrooskiposGetConst('SABROOSKIPOS_CATEGORY_FLAVORS_BANDEJAS', $term)),
 		'adicionals' => pickerAdicionalOptions($db, $term),
 	));

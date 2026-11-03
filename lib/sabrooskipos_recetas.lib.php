@@ -460,6 +460,40 @@ function sabrooskiposRepartoMix($db, $saborIds)
 }
 
 /**
+ * Porciones de un producto que alcanzan con el mix del almacén, por sabor: el mínimo entre
+ * los mix del sabor de existencia / (gramos de la porción × su fracción). Un sabor con un
+ * mix sin cargar da 0. Con dos sabores la porción se reparte, así que es una cota baja.
+ *
+ * @param DoliDB $db
+ * @param int    $wh        almacén del terminal
+ * @param int[]  $saborIds  ids de los sabores (SM-*)
+ * @param float  $gramos    gramos de mix por porción del producto
+ * @return array<int,float>  [id sabor => porciones]; sin entrada si el sabor no tiene mix
+ */
+function sabrooskiposPorcionesPorSabor($db, $wh, $saborIds, $gramos)
+{
+	$out = array();
+	if ($wh <= 0 || $gramos <= 0) {
+		return $out;
+	}
+	$stock = sabrooskiposStockAlmacen($db, $wh);
+	foreach ($saborIds as $sid) {
+		$min = null;
+		foreach (sabrooskiposRepartoMix($db, array($sid)) as $mid => $frac) {
+			if ($frac <= 0) {
+				continue;
+			}
+			$p = max(0, isset($stock[$mid]) ? $stock[$mid] : 0) / ($gramos * $frac);
+			$min = ($min === null ? $p : min($min, $p));
+		}
+		if ($min !== null) {
+			$out[(int) $sid] = $min;
+		}
+	}
+	return $out;
+}
+
+/**
  * Consumo teórico de insumos de una línea de venta.
  *
  * @param DoliDB $db

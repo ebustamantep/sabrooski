@@ -8,6 +8,9 @@
   productos y pasa la existencia de las variedades; Oreo y Pirulín siguen en unidades.
 - Inventario de ventas: columna **Por receta** (lo que gastaron las ventas por receta); los
   servidos salen "(por receta)"; las salidas de tickets borrados siguen como diferencia.
+- Toma de orden: los sabores mix dependen del mix del camión de la caja. Sin mix para una
+  porción salen en gris ("sin mix", no se eligen); con pocas porciones, aviso "quedan N"
+  (Setup → Ajustes → Aviso de mix por agotarse, 10 por defecto).
 - Botones de Excel y de descarga del paquete con token CSRF (fallaban en producción).
 - Categoría **Individual** (antes Golosinas) para lo que se vende suelto y baja del camión al
   venderse: golosinas, Oreo, Pirulín, **Agua mineral** (IND-001). `test/individual_cli.php`.

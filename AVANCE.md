@@ -700,3 +700,27 @@ Se conservan usuarios/permisos, terceros, cuentas, formas de pago, almacenes y c
   productos, 57 en venta, 65 kits, 17 categorías, 0 tickets/movimientos/existencias; conserva
   usuarios, terceros, almacenes y 6 líneas de banco ajenas a pagos. `test/reset_cli.php`
   (local, revertido): Todo OK.
+
+### 21.5 Sabores según el mix del camión (2026-11-03)
+
+Pedido del usuario: en la Toma de orden salían todos los sabores aunque el camión no tuviera
+ese mix. Ahora lo que no se cargó sale en gris y lo que se está agotando, con aviso.
+
+- `sabrooskiposPorcionesPorSabor($db, $wh, $saborIds, $gramos)`: por sabor (SM-*, kit de
+  mixes con su fracción), porciones del producto = mínimo de existencia / (gramos × fracción).
+- `picker/api.php` getProduct: en productos mix con gramos por porción, cada sabor trae
+  `porciones` y `estado` (`sin_mix` < 1 porción, `poco` ≤ `SABROOSKIPOS_AVISO_PORCIONES`
+  (10), `ok`), con el almacén del terminal (nada si la caja no descuenta stock).
+- `picker.js` / `picker.css`: chip gris y deshabilitado "sin mix"; chip ámbar "⚠ quedan N".
+  Si ningún sabor tiene mix, el aviso al agregar lo dice. Setup → Ajustes: *Aviso de mix por
+  agotarse*.
+- Cota baja: con dos sabores la porción se reparte, así que alcanza para más.
+- Visto: hay Mix de coco cargado (INS-053) pero ningún sabor lo usa (consultado al usuario).
+- `test/sabores_mix_cli.php`: chocolate 0, fresa 500 g, mantecado 10 kg, Sundae 172 g →
+  Chocolate y mezclas 0, Fresa 2, Mantecado-Fresa 5, Mantecado 58. Todo OK.
+- Mix nuevo sin desarrollador: el grupo "Mix por sabor" de `recetas_sabrooski.json` también toma
+  la categoría **Mix** (antes solo refs INS-050..053). Un sabor nuevo (SM-xx en "Sabores mix",
+  kit de mix con fracción, incdec 0) ya funcionaba: popup, disponibilidad y descuento leen el kit.
+  Probado (revertido): INS-054 + SM-07 → sale en la carga y en el popup (0 porciones sin cargar,
+  17 con 3 kg para Sundae). Manual: "Mix nuevo" y "Sabor nuevo". Mix de coco: el usuario confirma
+  que no se vende.
