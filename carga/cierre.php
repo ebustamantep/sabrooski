@@ -51,9 +51,18 @@ if (GETPOST('action', 'aZ09') == 'guardar') {
 	$errors = array();
 	$db->begin();
 	$r = sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, $errors);
+	// Traspaso de turno: lo que quedó (ya contado) pasa al camión del turno siguiente.
+	$tr = null;
+	if ($r >= 0 && GETPOST('traspasar', 'int') == 1) {
+		$tr = sabrooskiposTraspasoTurno($db, $user, $wh, $fecha, $errors);
+		if (!is_array($tr)) {
+			$r = -1;
+		}
+	}
 	if ($r >= 0) {
 		$db->commit();
-		setEventMessages('Cierre registrado: '.count($conteos).' productos contados, '.$r.' ajustes.', null, 'mesgs');
+		setEventMessages('Cierre registrado: '.count($conteos).' productos contados, '.$r.' ajustes.'
+			.($tr ? ' Traspasados '.$tr['n'].' productos a '.$tr['destino']['ref'].' (turno del '.dol_print_date(dol_stringtotime($tr['destino']['fecha'].' 12:00:00'), '%d/%m/%Y').').' : ''), null, 'mesgs');
 		header('Location: '.$_SERVER['PHP_SELF'].'?wh='.$wh.'&fecha='.urlencode($fecha));
 		exit;
 	}
@@ -62,6 +71,10 @@ if (GETPOST('action', 'aZ09') == 'guardar') {
 }
 
 $stMovil = sabrooskiposStockAlmacen($db, $wh);
+$siguiente = sabrooskiposTurnoSiguiente($db, $wh, $fecha);
+$o = $db->fetch_object($db->query("SELECT MAX(datem) AS d FROM ".MAIN_DB_PREFIX."stock_mouvement WHERE fk_entrepot = ".((int) $wh)
+	." AND label LIKE 'Traspaso de turno%' AND datem BETWEEN '".$db->escape($fecha)." 00:00:00' AND '".$db->escape($fecha)." 23:59:59'"));
+$yaTraspaso = ($o && $o->d);
 
 llxHeader(sabrooskiposCargaCss(), 'Cierre del móvil', '', '', 0, 0, '', '', '', 'mod-sabrooskipos page-cierre');
 print load_fiche_titre('Cierre del móvil (conteo)', '', 'stock');
@@ -97,7 +110,21 @@ foreach ($grupos as $g) {
 	}
 }
 print '</table></div>';
-print '<div class="center"><input type="submit" class="button" value="Registrar cierre"></div>';
+print '<div class="center"><input type="submit" class="button" value="Registrar cierre">';
+if ($siguiente) {
+	$fsig = dol_print_date(dol_stringtotime($siguiente['fecha'].' 12:00:00'), '%d/%m/%Y');
+	print ' <button type="submit" class="button button-save" name="traspasar" value="1" onclick="return confirm(\''
+		.dol_escape_js('¿Registrar el cierre y pasar todo lo que queda en el camión a '.$siguiente['ref'].' (turno del '.$fsig.')?').'\');">'
+		.'Registrar cierre y traspasar a '.dol_escape_htmltag($siguiente['ref']).'</button>';
+}
+print '</div>';
+if ($siguiente) {
+	print '<div class="center opacitymedium">El traspaso pasa todo lo que queda (lo contado y, lo que no se contó, según el sistema) a '
+		.dol_escape_htmltag($siguiente['ref']).' como existencia inicial del turno del '.$fsig.'. Después, en Carga del camión → Reposición, se repone lo que salió.</div>';
+}
+if ($yaTraspaso) {
+	print '<div class="warning">Este móvil ya traspasó su inventario en este turno.</div>';
+}
 print '</form>';
 
 llxFooter();

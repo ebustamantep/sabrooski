@@ -100,6 +100,15 @@ if (!$data) {
 		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). Después se carga el móvil con "Existencia inicial" o "Reposición".'
 		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en kg. '
 			.'Topping y sirope van a granel, en gramos (todas las variedades juntas).').'</div>';
+	// Reposición después de un traspaso de turno: lo que salió en el turno anterior, para
+	// reponer solo eso (el resto ya lo trajo el traspaso).
+	$ant = ($tipo == 'reposicion' ? sabrooskiposSalidasTurnoAnterior($db, $wh) : null);
+	if ($ant) {
+		print '<div class="info">Este móvil recibió el traspaso de <b>'.dol_escape_htmltag($ant['origen']).'</b> (turno del '
+			.dol_print_date(dol_stringtotime($ant['fecha'].' 12:00:00'), '%d/%m/%Y').'). La columna <b>Salió en el turno anterior</b> es lo que se vendió, regaló o '
+			.'mermó en ese turno: reponer eso deja el camión como empezó aquel turno. '
+			.'<button type="button" class="button smallpaddingimp" onclick="document.querySelectorAll(\'input[data-salio]\').forEach(function (i) { i.value = i.dataset.salio; });">Reponer lo que salió</button></div>';
+	}
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="guardar">';
@@ -109,7 +118,7 @@ if (!$data) {
 	print '<div class="div-table-responsive"><table class="noborder centpercent sbr-table">';
 	foreach ($grupos as $g) {
 		print '<tr class="liste_titre"><td>'.dol_escape_htmltag($g['titulo']).'</td><td>Unidad</td><td class="right">En Principal</td>'
-			.($tipo != 'principal' ? '<td class="right">En el móvil</td>' : '').'<td class="right">Cantidad</td></tr>';
+			.($tipo != 'principal' ? '<td class="right">En el móvil</td>' : '').($ant ? '<td class="right">Salió en el turno anterior</td>' : '').'<td class="right">Cantidad</td></tr>';
 		foreach ($g['items'] as $it) {
 			$f = $it['factor'] > 0 ? $it['factor'] : 1;
 			print '<tr class="oddeven"><td>'.dol_escape_htmltag($it['label']).' <span class="opacitymedium">'.dol_escape_htmltag($it['ref']).'</span></td>';
@@ -118,7 +127,12 @@ if (!$data) {
 			if ($tipo != 'principal') {
 				print '<td class="right">'.sabrooskiposCant((isset($stMovil[$it['id']]) ? $stMovil[$it['id']] : 0) / $f).'</td>';
 			}
-			print '<td class="right"><input type="text" inputmode="decimal" class="flat right width75" name="qty['.$it['id'].']" value=""></td></tr>';
+			$salio = ($ant && isset($ant['salidas'][$it['id']]) ? $ant['salidas'][$it['id']] / $f : 0);
+			if ($ant) {
+				print '<td class="right">'.($salio > 0 ? sabrooskiposCant(round($salio, 3)) : '').'</td>';
+			}
+			print '<td class="right"><input type="text" inputmode="decimal" class="flat right width75" name="qty['.$it['id'].']" value=""'
+				.($salio > 0 ? ' data-salio="'.dol_escape_htmltag(price2num(round($salio, 3))).'"' : '').'></td></tr>';
 		}
 	}
 	print '</table></div>';

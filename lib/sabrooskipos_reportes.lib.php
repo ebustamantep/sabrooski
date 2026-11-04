@@ -18,7 +18,7 @@
  *   array('titulo' => '', 'secciones' => array(
  *       array('titulo' => '', 'columnas' => array(array('label', 'tipo')), 'filas' => array(...), 'total' => array(...) | null),
  *   ))
- * tipo: 'text', 'int', 'num' (2 decimales), 'usd', 'bs'.
+ * tipo: 'text', 'int', 'num' (2 decimales, 3 si los hay), 'usd', 'bs'.
  *
  * Reglas para leer los movimientos de stock del almacén del terminal en el día:
  *  - Existencia (EX)  = stock al inicio del día + ajustes "Existencia inicial…".
@@ -149,6 +149,8 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Regal%' THEN -m.value ELSE 0 END), 0) AS regalo,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Dañad%' THEN -m.value ELSE 0 END), 0) AS danadas,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Crédito%' THEN -m.value ELSE 0 END), 0) AS credito_mov,";
+		// Traspaso de turno: lo que pasó al camión siguiente era la existencia al cierre.
+		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Traspaso de turno%' THEN -m.value ELSE 0 END), 0) AS traspaso,";
 		// Salidas por los tickets del turno (producto vendido o insumo de su receta).
 		$sql .= " COALESCE(SUM(CASE WHEN m.origintype = 'facture' AND m.fk_origin IN (".($ids ? implode(',', $ids) : '0').") THEN -m.value ELSE 0 END), 0) AS fac,";
 		$sql .= " GROUP_CONCAT(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Regal%' AND m.value < 0"
@@ -159,8 +161,8 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 		$resql = $db->query($sql);
 		while ($resql && ($o = $db->fetch_object($resql))) {
 			$data['productos'][(int) $o->rowid] = array('ref' => $o->ref, 'label' => $o->label, 'precio' => (float) $o->price_ttc, 'tosell' => (int) $o->tosell,
-				'ex' => (float) $o->s0 + (float) $o->inicial, 'rep' => (float) $o->rep, 'regalo' => (float) $o->regalo, 'danadas' => (float) $o->danadas,
-				'credito_mov' => (float) $o->credito_mov, 'fac' => (float) $o->fac, 'cierre' => (float) $o->s1, 'regalo_conos' => sabrooskiposConos((string) $o->regalo_labels, true),
+				'ex' => (float) $o->s0 + (float) $o->inicial, 'anterior' => (float) $o->s0, 'inicial' => (float) $o->inicial, 'rep' => (float) $o->rep, 'regalo' => (float) $o->regalo, 'danadas' => (float) $o->danadas,
+				'credito_mov' => (float) $o->credito_mov, 'fac' => (float) $o->fac, 'cierre' => (float) $o->s1 + (float) $o->traspaso, 'traspaso' => (float) $o->traspaso, 'regalo_conos' => sabrooskiposConos((string) $o->regalo_labels, true),
 				'categoria' => '', 'vd' => 0, 'vd_conos' => 0, 'vd_total' => 0, 'del' => 0, 'del_conos' => 0);
 		}
 	}
@@ -592,9 +594,26 @@ function sabrooskiposReporteInventario($data)
 	uasort($rows, function ($a, $b) {
 		return ($a['o'] - $b['o']) ?: strcmp($a['ref'], $b['ref']);
 	});
+	// El mix se lleva en gramos pero se carga y se cuenta en kg: aquí también en kg.
+	$esMix = array();
+	$resql = $db->query("SELECT cp.fk_product FROM ".MAIN_DB_PREFIX."categorie_product cp JOIN ".MAIN_DB_PREFIX."categorie c ON c.rowid = cp.fk_categorie WHERE c.label = 'Mix'");
+	while ($resql && ($o = $db->fetch_object($resql))) {
+		$esMix[(int) $o->fk_product] = 1;
+	}
 	$filas = array();
 	$tventas = 0;
 	foreach ($rows as $r) {
+		if (isset($esMix[$r['pid']]) && !$r['sin_stock']) {
+			foreach (array('ex', 'rep', 'vd', 'regalo', 'credito', 'danadas', 'receta', 'cierre') as $k) {
+				$r[$k] = $r[$k] / 1000;
+			}
+			$r['label'] .= ' (kg)';
+		}
+		// Variedades viejas de topping/sirope (antes del granel) sin nada en el turno: no se muestran.
+		if (in_array($r['label'], array('Toppings (g)', 'Siropes (g)'))
+			&& abs($r['ex']) + abs($r['rep']) + abs($r['cierre']) + abs($r['receta']) + abs($r['regalo']) + abs($r['danadas']) < 0.0001) {
+			continue;
+		}
 		$total = $r['ex'] + $r['rep'];
 		$auto = $r['regalo'] + $r['credito'] + $r['danadas'];
 		$segun = $total - $r['cierre'];
@@ -608,7 +627,8 @@ function sabrooskiposReporteInventario($data)
 			$filas[] = array($r['label'].$suf, '', '', '', $r['vd'], $pu, $r['vd_total'], $r['regalo'] ?: '', $r['credito'] ?: '', $r['danadas'] ?: '', ($auto ?: ''), '', '', '', '', '');
 		} else {
 			$filas[] = array($r['label'], $r['ex'], $r['rep'], $total, $r['vd'], $pu,
-				$r['vd_total'], $r['regalo'], $r['credito'], $r['danadas'], $auto, $r['receta'], $r['cierre'], $segun, $registradas, $segun - $registradas);
+				$r['vd_total'], $r['regalo'], $r['credito'], $r['danadas'], $auto, $r['receta'], $r['cierre'], $segun, $registradas,
+				(abs($segun - $registradas) < 0.00005 ? 0 : round($segun - $registradas, 4)));
 		}
 		$tventas += $r['vd_total'];
 	}
@@ -641,7 +661,11 @@ function sabrooskiposFmt($v, $tipo)
 	if ($tipo == 'int') {
 		return price($v, 0, '', 1, -1, (abs($v - round($v)) > 0.0001 ? 2 : 0));
 	}
-	return price($v, 0, '', 1, -1, 2);
+	if (abs($v) < 0.00005) {
+		$v = 0.0; // sin "-0" por restos de decimales
+	}
+	// 2 decimales; 3 si hacen falta (kg de mix: 0,172)
+	return price($v, 0, '', 1, -1, ($tipo == 'num' && abs($v * 100 - round($v * 100)) > 0.0001 ? 3 : 2));
 }
 
 /**
@@ -715,7 +739,7 @@ function sabrooskiposReporteExcel($reportes, $enc, $filename)
 
 	$book = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 	$book->removeSheetByIndex(0);
-	$fmt = array('int' => '#,##0', 'num' => '#,##0.00', 'usd' => '#,##0.00', 'bs' => '#,##0.00');
+	$fmt = array('int' => '#,##0', 'num' => '#,##0.00#', 'usd' => '#,##0.00', 'bs' => '#,##0.00'); // num: 3.er decimal si lo hay (kg de mix)
 	$hdrFill = array('fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => array('rgb' => '6B3FA0'));
 
 	foreach ($reportes as $rep) {
@@ -876,7 +900,9 @@ function sabrooskiposReporteInsumos($data)
 
 	$datos = sabrooskiposRecetasLeer();
 	$grupos = $datos ? sabrooskiposCargaGrupos($db, $datos) : array();
-	$cols = array(array('Insumo', 'text'), array('Unidad', 'text'), array('Existencia', 'num'), array('Carga', 'num'), array('Total', 'num'),
+	// Existencia anterior = lo que había antes del día; Carga inicial = "Existencia inicial…"
+	// (carga de la mañana o traspaso de turno); Reposición = cargas durante el turno.
+	$cols = array(array('Insumo', 'text'), array('Unidad', 'text'), array('Existencia anterior', 'num'), array('Carga inicial', 'num'), array('Reposición', 'num'), array('Total', 'num'),
 		array('Regalías y dañadas', 'num'), array('Cierre', 'num'), array('Consumo real', 'num'), array('Descontado por ventas', 'num'),
 		array('Consumo teórico', 'num'), array('Diferencia', 'num'));
 	$secciones = array();
@@ -885,13 +911,15 @@ function sabrooskiposReporteInsumos($data)
 			continue; // por unidad: ver "Camión congelados" e "Inventario de ventas"
 		}
 		$filas = array();
-		// Totales de lo que se controla por conteo, por unidad: existencia, carga, bajas, cierre,
-		// real, teórico del kit y descontado por ventas. Lo que va a granel (g) solo sale en el total.
-		$conteo = array('g' => array_fill(0, 7, 0), 'uds' => array_fill(0, 7, 0));
+		// Totales de lo que se controla por conteo, por unidad: existencia anterior, carga inicial,
+		// reposición, bajas, cierre, real, teórico del kit y descontado por ventas.
+		$conteo = array('g' => array_fill(0, 8, 0), 'uds' => array_fill(0, 8, 0));
 		foreach ($g['items'] as $it) {
 			$p = isset($data['productos'][$it['id']]) ? $data['productos'][$it['id']] : null;
 			$f = $it['factor'] > 0 ? $it['factor'] : 1;
 			$ex = $p ? $p['ex'] : 0;
+			$ant = $p ? (isset($p['anterior']) ? $p['anterior'] : $ex) : 0;
+			$ini = $ex - $ant;
 			$rep = $p ? $p['rep'] : 0;
 			$baja = $p ? $p['regalo'] + $p['danadas'] : 0;
 			$cierre = $p ? $p['cierre'] : 0;
@@ -904,18 +932,18 @@ function sabrooskiposReporteInsumos($data)
 			$deConteo = sabrooskiposEsDeConteo($db, $it['id']);
 			if ($deConteo) {
 				$u = ($it['unidad'] == 'uds' ? 'uds' : 'g');
-				foreach (array($ex, $rep, $baja, $cierre, $real, $t, $vm) as $i => $v) {
+				foreach (array($ant, $ini, $rep, $baja, $cierre, $real, $t, $vm) as $i => $v) {
 					$conteo[$u][$i] += $v;
 				}
 				if ($u == 'g') {
 					continue;
 				}
 			}
-			$filas[] = array($it['label'], $it['unidad'], $ex / $f, $rep / $f, ($ex + $rep) / $f, $baja / $f, $cierre / $f, $real / $f, $vm / $f,
+			$filas[] = array($it['label'], $it['unidad'], $ant / $f, $ini / $f, $rep / $f, ($ex + $rep) / $f, $baja / $f, $cierre / $f, $real / $f, $vm / $f,
 				($deConteo ? ($t ? $t / $f : '') : $t / $f), ($deConteo ? '' : ($real - $t) / $f));
 		}
 		if ($g['titulo'] == 'Mix por sabor' && $mixSinSabor > 0) {
-			$filas[] = array('Mix sin sabor registrado (ventas fuera del popup)', 'kg', '', '', '', '', '', '', '', $mixSinSabor / 1000, '');
+			$filas[] = array('Mix sin sabor registrado (ventas fuera del popup)', 'kg', '', '', '', '', '', '', '', '', $mixSinSabor / 1000, '');
 		}
 		// Totales de lo que se controla por conteo: real (todas las variedades) vs teórico
 		// (receta + adicionales + lo que ya descuentan los especiales por kit). Topping y sirope
@@ -923,17 +951,17 @@ function sabrooskiposReporteInsumos($data)
 		// solo sale en turnos de antes del granel.
 		$total = null;
 		$hay = function ($c, $teorico) {
-			return abs($teorico) > 0.0001 || abs($c[4]) > 0.0001 || abs($c[0] + $c[1]) > 0.0001;
+			return abs($teorico) > 0.0001 || abs($c[5]) > 0.0001 || abs($c[0] + $c[1] + $c[2]) > 0.0001;
 		};
 		$fila = function ($label, $u, $c, $teorico) {
-			return array($label, $u, $c[0], $c[1], $c[0] + $c[1], $c[2], $c[3], $c[4], $c[6], $teorico, $c[4] - $teorico);
+			return array($label, $u, $c[0], $c[1], $c[2], $c[0] + $c[1] + $c[2], $c[3], $c[4], $c[5], $c[7], $teorico, $c[5] - $teorico);
 		};
 		if ($g['titulo'] == 'Siropes' && $hay($conteo['g'], $teoSirope)) {
-			$total = $fila('TOTAL SIROPE', 'g', $conteo['g'], $teoSirope + $conteo['g'][5]);
+			$total = $fila('TOTAL SIROPE', 'g', $conteo['g'], $teoSirope + $conteo['g'][6]);
 		} elseif ($g['titulo'] == 'Toppings') {
-			$filas[] = $fila('TOTAL PIRULÍN Y OREO', 'uds', $conteo['uds'], $teoPiru + $conteo['uds'][5]);
+			$filas[] = $fila('TOTAL PIRULÍN Y OREO', 'uds', $conteo['uds'], $teoPiru + $conteo['uds'][6]);
 			if ($hay($conteo['g'], $teoTopping)) {
-				$total = $fila('TOTAL TOPPING', 'g', $conteo['g'], $teoTopping + $conteo['g'][5]);
+				$total = $fila('TOTAL TOPPING', 'g', $conteo['g'], $teoTopping + $conteo['g'][6]);
 			}
 		}
 		if ($filas || $total) {
@@ -941,7 +969,7 @@ function sabrooskiposReporteInsumos($data)
 		}
 	}
 	return array('titulo' => 'SABROOSKI – INSUMOS DEL MÓVIL', 'hoja' => 'Insumos',
-		'nota' => 'Consumo real = existencia + carga − regalías/dañadas − cierre. Topping y sirope van a granel (en gramos) y bajan al vender según la receta; '
+		'nota' => 'Consumo real = existencia anterior + carga inicial + reposición − regalías/dañadas − cierre. Carga inicial incluye el traspaso del turno anterior. Topping y sirope van a granel (en gramos) y bajan al vender según la receta; '
 			.'Pirulín y Oreo se comparan en total contra el conteo. '
 			.'Sin conteo de cierre, el cierre es lo que dice el sistema.',
 		'secciones' => $secciones);

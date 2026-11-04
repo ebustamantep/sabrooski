@@ -724,3 +724,44 @@ ese mix. Ahora lo que no se cargó sale en gris y lo que se está agotando, con 
   Probado (revertido): INS-054 + SM-07 → sale en la carga y en el popup (0 porciones sin cargar,
   17 con 3 kg para Sundae). Manual: "Mix nuevo" y "Sabor nuevo". Mix de coco: el usuario confirma
   que no se vende.
+
+## 22. Traspaso de turno (2026-11-04)
+
+Pedido del usuario tras probar en producción: lo que no se vende pasa al camión del turno
+siguiente y Principal solo repone lo que falta (AM carga 100 vasos, vende 30, traspasa 70 al
+PM, se reponen 30). Decisiones: se traspasa **todo** lo que queda; el PM traspasa al **AM del
+día siguiente**; **sin carga ideal fija** (la reposición muestra lo que salió); el traspaso se
+hace **en el Cierre**.
+
+- `sabrooskiposTurnoSiguiente()`: terminal siguiente el mismo día; desde el último, el primero
+  del día siguiente. `sabrooskiposTraspasoTurno()`: todo lo que tiene existencia > 0; sale del
+  origen como "Traspaso de turno → X" (23:30 del turno) y entra al destino como "Existencia
+  inicial · traspaso de Y" (en la fecha de su turno; 06:00 si es el día siguiente), código
+  `TRASPASO-…`.
+- Reportes (`sabrooskiposReporteDatos`): `cierre` = stock al final del día + lo traspasado; en
+  el destino entra como existencia (etiqueta "Existencia inicial…"), no como reposición.
+- Cierre (conteo): botón "Registrar cierre y traspasar a …" (misma transacción); aviso si el
+  móvil ya traspasó en ese turno.
+- Carga → Reposición: si el móvil recibió un traspaso, columna "Salió en el turno anterior"
+  (`sabrooskiposSalidasTurnoAnterior()` = existencia + cargas − cierre del origen, por producto)
+  y botón "Reponer lo que salió".
+- `test/traspaso_cli.php`: AM vende 30 Sundae, cierra y traspasa → AM en 0, PM recibe todo
+  como existencia, Inventario e Insumos del AM sin diferencia, reposición sugiere 30 vasos y
+  30 × 172 g de mix; PM → AM con fecha de mañana. Todo OK; también pasan las demás pruebas.
+- Insumos del móvil: el usuario cargó 11 kg de mix como "Existencia inicial" y no lo veía (iba
+  sumado en Existencia; "Carga" eran solo reposiciones). Ahora: Existencia anterior (stock antes
+  del día) | Carga inicial ("Existencia inicial…", incluye traspasos) | Reposición | Total…
+  `sabrooskiposReporteDatos()` guarda `anterior` e `inicial`. Índices de las pruebas corridos.
+  Visto en su prueba: el AM ya tenía 9,4 kg de mix de pruebas viejas; las ventas descontaron
+  bien (Barquilla chocolate −90 g, Sundae mantecado −172 g).
+- Inventario de ventas: los mix (categoría Mix) en kg, "Mix de chocolate (kg)"; `sabrooskiposFmt`
+  'num' con 3.er decimal si lo hay (0,172) y sin "-0"; Excel `#,##0.00#`; la diferencia se redondea.
+  Se ocultan "Toppings (g)" / "Siropes (g)" (variedades viejas) cuando están en 0.
+- Local: camiones en cero (`test/vaciar_moviles_cli.php [--desde=] [--aplicar]`, respaldo
+  `sabrooski_db_antes_vaciar_moviles_20261104.sql`): quita lo que cada móvil tenía antes de hoy, sin
+  pasar de lo que tiene ahora, con "Ajuste: camión en cero (limpieza de pruebas)" fechado ayer
+  23:59:59 (`LIMPIEZA-20261104232119`, 104 ajustes). Quedó: Movil01PM en 0; Movil01AM solo con la
+  prueba del usuario (mix chocolate 10,91 kg, mantecado 10,828 kg); el día 04/11 cuadra.
+- Pruebas: `test/stock_prueba.inc.php` (`sabrooskiposPruebaStock()`) carga existencia de prueba en
+  los móviles dentro de la transacción; la usan traspaso, granel, individual_venta,
+  servidos_inventario, bajas y recetas (antes dependían de existencias viejas). Todas OK.

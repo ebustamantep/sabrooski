@@ -25,7 +25,7 @@ Menú **SabrooskiVentas → Carga del camión** (permiso "Registrar carga y cier
 
 1. Elige el tipo de movimiento:
     - **Existencia inicial (Principal → móvil):** lo que el camión tiene al empezar.
-    - **Reposición / carga (Principal → móvil):** lo que se le sube durante el turno.
+    - **Reposición / carga (Principal → móvil):** lo que se le sube durante el turno, o lo que falta después de un traspaso de turno (columna *Salió en el turno anterior*).
     - **Entrada a Principal (compras o conteo):** mercancía que llega al almacén principal.
 2. Elige el móvil (por ejemplo, Movil01PM) y la fecha del turno.
 3. Escribe las cantidades en la columna de la derecha. La tabla muestra lo que hay en Principal para no cargar más de lo que existe.
@@ -101,9 +101,17 @@ Menú **SabrooskiVentas → Cierre (conteo)**.
 1. Elige el móvil y la fecha del turno.
 2. Cuenta físicamente lo que queda y escríbelo en **Conteo**, en las mismas unidades que la carga (mix en kg). El topping y el sirope se **pesan todo junto** y se escriben en gramos en **Topping (granel)** y **Sirope (granel)**. Oreo y Pirulín se cuentan en unidades. La columna **Según sistema** sirve de referencia.
 3. Deja vacío lo que no contaste: no se toca.
-4. Pulsa **Registrar cierre**.
+4. Pulsa **Registrar cierre**, o **Registrar cierre y traspasar a …** para pasar el inventario al otro camión (ver abajo).
 
 El sistema iguala la existencia al conteo. En Oreo y Pirulín la diferencia queda como "Consumo del turno (conteo)"; en lo demás (también topping y sirope, que ya bajaron al vender), como "Ajuste cierre (conteo)": es la merma, y se ve en el reporte de insumos.
+
+**Traspaso de turno.** Lo que no se vendió pasa al camión del turno siguiente, y Principal solo repone lo que falta:
+
+1. Al cerrar el **AM**, pulsa **Registrar cierre y traspasar a Movil01PM**. Todo lo que queda en el camión (lo contado y, lo que no se contó, según el sistema) pasa al PM como **existencia inicial** de ese mismo día. El AM queda en 0.
+2. En **Carga del camión → Reposición**, con el móvil PM, aparece la columna **Salió en el turno anterior**: lo que el AM vendió, regaló o mermó. El botón **Reponer lo que salió** la copia en *Cantidad*; ajusta lo que haga falta y pulsa **Registrar carga**. Ejemplo: el AM empezó con 100 vasos de Sundae y vendió 30; el PM recibe 70 y se reponen 30.
+3. Al cerrar el **PM**, el mismo botón traspasa al **Movil01AM del día siguiente**.
+
+Registra antes las regalías y dañadas y cierra las ventas del turno: después del traspaso el camión que cierra queda vacío. En los reportes, lo traspasado cuenta como existencia al cierre del que entrega y como existencia del que recibe, no como faltante ni como carga.
 
 ### 3. Cierre de caja
 
@@ -246,7 +254,7 @@ Los seis reportes están en el menú izquierdo de **SabrooskiVentas**. Se filtra
 | Pago móvil y puntos | Pagos móviles y transacciones de punto por lote, crédito y débito | Cuadrar contra el banco y los cierres de lote |
 | Especificaciones de ventas | Ventas del turno, resumen de cierre, ventas a crédito y observaciones (descuentos, regalías, dañadas) | La planilla principal del turno |
 | Inventario de ventas | Por producto: existencia, reposición, vendido, regalías, crédito, dañadas, lo gastado por receta y cierre | Ver qué se movió y dónde hay diferencias |
-| Insumos del móvil | Por insumo: consumo real (existencia + carga − regalías/dañadas − cierre) frente al teórico de las ventas | Detectar faltantes o porciones mal servidas |
+| Insumos del móvil | Por insumo: existencia anterior, **carga inicial** (existencia inicial o traspaso de turno), reposición, consumo real (todo eso − regalías/dañadas − cierre) frente al teórico de las ventas | Detectar faltantes o porciones mal servidas |
 | Costos y margen | Ventas del turno, costo por receta, margen y regalías/dañadas con su costo | Ver la ganancia real del turno |
 
 **Cómo leer Insumos del móvil:** si el consumo real es mayor que el teórico, salió más insumo del que justifican las ventas: porciones grandes, regalías sin registrar o faltante. En topping y sirope a granel, el consumo real (existencia + carga − peso del cierre) se compara con los gramos que llevan los productos vendidos más los adicionales: la diferencia es la merma (o lo que se sirvió de más). Oreo y Pirulín se comparan en total del turno.

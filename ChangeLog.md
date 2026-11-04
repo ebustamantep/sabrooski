@@ -1,5 +1,16 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.14
+
+- **Traspaso de turno:** en Cierre, "Registrar cierre y traspasar a …" pasa todo lo que queda
+  al camión del turno siguiente (AM → PM el mismo día, PM → AM del día siguiente) como
+  existencia inicial. En Reposición, columna "Salió en el turno anterior" y botón para
+  reponer solo eso. Los reportes cuentan lo traspasado como existencia al cierre.
+- Insumos del móvil: la existencia se separa en **Existencia anterior** y **Carga inicial**
+  (existencia inicial o traspaso), además de Reposición: la carga del día ya no queda escondida.
+- Inventario de ventas: el mix en **kg** (como en Carga, Cierre e Insumos); cantidades con 3
+  decimales cuando hacen falta (0,172 kg), también en el Excel; sin "-0".
+
 ## 1.13
 
 - **Topping y sirope a granel:** un insumo en gramos para cada uno (`INS-TOPG`, `INS-SIRG`), sin
