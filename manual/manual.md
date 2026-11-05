@@ -134,7 +134,6 @@ El módulo se instala como cualquier módulo externo de Dolibarr y se configura 
 | --- | --- |
 | Ajustes | IVA del catálogo (16% por defecto), **Almacén principal** (origen de la carga del camión), categorías ocultas en el popup |
 | Terminal 1, Terminal 2… | Por cada caja: categorías de sabores mix, sabores de bandejas, toppings, siropes y adicionales; producto Adicional |
-| Cargar catálogo | Carga inicial del catálogo desde el JSON del módulo (solo instalaciones nuevas) |
 | Migración | Importar el paquete de catálogo y configuración; reactivar el módulo |
 
 **Topping y sirope a granel** (al pie de Ajustes): el botón **Pasar a granel** crea **Topping (granel)** (`INS-TOPG`) y **Sirope (granel)** (`INS-SIRG`), suma en cada almacén lo que había de las variedades (Dandy, Maní, Sirope de chocolate…) y lo pasa al granel; las variedades quedan fuera de uso. Se hace una vez por base de datos; repetirlo no duplica nada.

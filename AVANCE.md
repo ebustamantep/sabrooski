@@ -765,3 +765,17 @@ hace **en el Cierre**.
 - Pruebas: `test/stock_prueba.inc.php` (`sabrooskiposPruebaStock()`) carga existencia de prueba en
   los móviles dentro de la transacción; la usan traspaso, granel, individual_venta,
   servidos_inventario, bajas y recetas (antes dependían de existencias viejas). Todas OK.
+
+### 22.1 Categorías mal ubicadas tras el reset en producción (2026-11-05)
+
+Tras el reset en producción se usó la pestaña "Cargar catálogo" (`sabrooski_productos.json`):
+como la raíz POS ya no existía, creó Servido en camión / Especial domo / Empaquetado / Adicional
+en la raíz. Luego el import del paquete las reutilizó por label sin moverlas, y los productos
+quedaron fuera de la raíz del TakePOS. El usuario lo corrigió a mano en producción (borró los
+duplicados vacíos y movió las cuatro bajo "Productos de punto de venta (POS)").
+
+- `sabrooskiposImportCatalogo()`: si la categoría ya existe con otro padre, la mueve al padre del
+  paquete (nota "Categoría X movida bajo Y"). Probado en `sabrooski_ensayo` con Adicional y
+  Empaquetado en la raíz: quedaron bajo POS, 0 errores.
+- Pestaña "Cargar catálogo" retirada del Setup; `admin/cargar_catalogo.php` redirige a Migración.
+  `test/cargar_catalogo_cli.php` sigue para pruebas. Manual y README actualizados.

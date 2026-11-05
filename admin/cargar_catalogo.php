@@ -69,6 +69,12 @@ if (!$user->admin) {
 	accessforbidden();
 }
 
+// Retirada: la carga antigua desde sabrooski_productos.json creaba las categorías de venta
+// fuera de la raíz del TakePOS si se usaba después de un reset. El catálogo se carga con el
+// paquete de Setup → Migración. (El runner CLI test/cargar_catalogo_cli.php sigue para pruebas.)
+header('Location: '.dol_buildpath('/sabrooskipos/admin/migracion_import.php', 1));
+exit;
+
 $action = GETPOST('action', 'aZ09');
 
 $report = array(

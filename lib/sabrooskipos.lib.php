@@ -676,6 +676,14 @@ function sabrooskiposImportCatalogo($db, $user, $data, &$report)
 			$id = sabrooskiposEnsureCategory($db, $label, $parentid, $user, $report);
 			if ($id > 0) {
 				$idbyLabel[$label] = $id;
+				// Si ya existía (p. ej. creada por "Cargar catálogo" en otro nivel), se mueve
+				// al padre del paquete: si no, quedaría fuera de la raíz del TakePOS.
+				$resp = $db->query("SELECT fk_parent FROM ".MAIN_DB_PREFIX."categorie WHERE rowid = ".((int) $id));
+				$objp = $resp ? $db->fetch_object($resp) : null;
+				if ($objp && (int) $objp->fk_parent != (int) $parentid) {
+					$db->query("UPDATE ".MAIN_DB_PREFIX."categorie SET fk_parent = ".((int) $parentid)." WHERE rowid = ".((int) $id));
+					$report['notas'][] = 'Categoría "'.$label.'" movida bajo "'.($parentLabel !== '' ? $parentLabel : '(raíz)').'"';
+				}
 			}
 		}
 		if (count($next) === count($pending)) {
@@ -925,10 +933,8 @@ function sabrooskiposAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
-	$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/cargar_catalogo.php", 1));
-	$head[$h][1] = $langs->trans("SabrooskiPOSCargarCatalogo");
-	$head[$h][2] = 'catalogo';
-	$h++;
+	// "Cargar catálogo" (sabrooski_productos.json) se retiró: tras un reset creaba las
+	// categorías de venta en la raíz. El catálogo se carga solo con el paquete de Migración.
 
 	// TEMPORAL: migración local -> producción (catálogo + config + turnos).
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/sabrooskipos/admin/migracion_import.php", 1));

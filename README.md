@@ -99,13 +99,11 @@ El módulo **no trae datos de ejemplo**: lee la BD real de Dolibarr. Para que la
   una lista seleccionable y se suman como líneas aparte a su propio precio.
 - Los **extrafields** de producto (se crean al activar el módulo).
 
-> **Carga automática:** el módulo incluye la página **Sabrooski POS → Cargar catálogo**
-> (`admin/cargar_catalogo.php`). Crea categorías, productos, precios y extrafields a
-> partir de `sabrooski_productos.json`, de forma idempotente. Ejecútala como superadmin
-> **antes** de revisar el Setup (la página rellena las constantes vacías).
->
-> También hay un runner CLI equivalente (misma función, sin navegador):
-> `php custom/sabrooskipos/test/cargar_catalogo_cli.php`.
+> **Carga del catálogo:** se hace con el paquete JSON de **Setup → Sabrooski POS →
+> Migración**. La antigua página "Cargar catálogo" (`admin/cargar_catalogo.php`, desde
+> `sabrooski_productos.json`) se retiró en v1.14: usada tras un reset creaba las
+> categorías de venta fuera de la raíz del TakePOS; ahora redirige a Migración.
+> El runner CLI `php custom/sabrooskipos/test/cargar_catalogo_cli.php` queda solo para pruebas.
 
 Ejemplo de valores en los productos base:
 
