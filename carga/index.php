@@ -41,32 +41,47 @@ $main = sabrooskiposAlmacenPrincipal($db);
 $data = sabrooskiposRecetasLeer();
 $grupos = $data ? sabrooskiposCargaGrupos($db, $data) : array();
 
+$keep = array();
 if (GETPOST('action', 'aZ09') == 'guardar') {
-	$cant = GETPOST('qty', 'array');
-	$factor = array();
+	$cant = (array) GETPOST('qty', 'array');
+	$porId = array();
 	foreach ($grupos as $g) {
 		foreach ($g['items'] as $it) {
-			$factor[$it['id']] = $it['factor'];
-		}
-	}
-	$cantidades = array();
-	foreach ((array) $cant as $pid => $v) {
-		$v = price2num($v);
-		if (isset($factor[(int) $pid]) && $v !== '' && (float) $v > 0) {
-			$cantidades[(int) $pid] = (float) $v * $factor[(int) $pid];
+			if ($tipo == 'principal') {
+				$it['max_carga'] = 0; // una compra a Principal puede ser grande: solo el mínimo
+			}
+			$porId[$it['id']] = $it;
 		}
 	}
 	$errors = array();
-	$db->begin();
-	$r = sabrooskiposRegistrarCarga($db, $user, $tipo, $wh, $cantidades, $fecha, $errors);
+	$cantidades = array();
+	foreach ($cant as $pid => $v) {
+		if (!isset($porId[(int) $pid])) {
+			continue;
+		}
+		$it = $porId[(int) $pid];
+		$q = sabrooskiposCargaValidar($it, $v, true, $errors);
+		if ($q !== null && $q > 0) {
+			$cantidades[(int) $pid] = $q * $it['factor'];
+		}
+	}
+	$r = 0;
+	$enTx = !$errors;
+	if ($enTx) {
+		$db->begin();
+		$r = sabrooskiposRegistrarCarga($db, $user, $tipo, $wh, $cantidades, $fecha, $errors);
+	}
 	if ($r > 0) {
 		$db->commit();
 		setEventMessages(($tipo == 'principal' ? count($cantidades).' entradas registradas en Principal.' : 'Carga registrada: '.count($cantidades).' productos trasladados a '.$moviles[$wh].'.'), null, 'mesgs');
 		header('Location: '.$_SERVER['PHP_SELF'].'?tipo='.urlencode($tipo).'&wh='.$wh.'&fecha='.urlencode($fecha));
 		exit;
 	}
-	$db->rollback();
+	if ($enTx) {
+		$db->rollback();
+	}
 	setEventMessages('No se registró la carga.', $errors, 'errors');
+	$keep = $cant; // se vuelven a mostrar lo escrito para corregir sin reescribir todo
 }
 
 $stMain = sabrooskiposStockAlmacen($db, $main);
@@ -97,8 +112,8 @@ if (!$data) {
 	print '<div class="error">Configura el almacén principal en Setup → Sabrooski POS → Configuración.</div>';
 } else {
 	print '<div class="opacitymedium marginbottom">'.($tipo == 'principal'
-		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). Después se carga el móvil con "Existencia inicial" o "Reposición".'
-		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en kg. '
+		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). El mix en <b>gramos</b>, sin punto ni coma (16,250 kg = 16250). Después se carga el móvil con "Existencia inicial" o "Reposición".'
+		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en <b>gramos</b>, sin punto ni coma (16,250 kg = 16250). '
 			.'Topping y sirope van a granel, en gramos (todas las variedades juntas).').'</div>';
 	// Reposición después de un traspaso de turno: lo que salió en el turno anterior, para
 	// reponer solo eso (el resto ya lo trajo el traspaso).
@@ -131,8 +146,10 @@ if (!$data) {
 			if ($ant) {
 				print '<td class="right">'.($salio > 0 ? sabrooskiposCant(round($salio, 3)) : '').'</td>';
 			}
-			print '<td class="right"><input type="text" inputmode="decimal" class="flat right width75" name="qty['.$it['id'].']" value=""'
-				.($salio > 0 ? ' data-salio="'.dol_escape_htmltag(price2num(round($salio, 3))).'"' : '').'></td></tr>';
+			$val = (isset($keep[$it['id']]) ? (string) $keep[$it['id']] : '');
+			print '<td class="right"><input type="text" inputmode="'.(!empty($it['entero']) ? 'numeric' : 'decimal').'" class="flat right width75" name="qty['.$it['id'].']" value="'.dol_escape_htmltag($val).'"'
+				.(!empty($it['entero']) ? ' placeholder="gramos"' : '')
+				.($salio > 0 ? ' data-salio="'.dol_escape_htmltag(!empty($it['entero']) ? (string) round($salio) : price2num(round($salio, 3))).'"' : '').'></td></tr>';
 		}
 	}
 	print '</table></div>';

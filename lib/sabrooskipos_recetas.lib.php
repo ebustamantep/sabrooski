@@ -756,13 +756,54 @@ function sabrooskiposCargaGrupos($db, $data)
 			$vistos[(int) $o->rowid] = 1;
 			$unidad = $g['unidad'] !== '' ? $g['unidad'] : ((string) $o->unidad_control !== '' ? (string) $o->unidad_control : 'uds');
 			$items[] = array('id' => (int) $o->rowid, 'ref' => $o->ref, 'label' => $o->label, 'unidad' => $unidad,
-				'factor' => ($g['unidad'] !== '' ? (float) $g['factor'] : 1.0));
+				'factor' => ($g['unidad'] !== '' ? (float) $g['factor'] : 1.0),
+				// Reglas contra errores de tecleo (p. ej. mix en gramos): solo enteros y rango por carga.
+				'entero' => !empty($g['entero']),
+				'min_carga' => (isset($g['min_carga']) ? (float) $g['min_carga'] : 0.0),
+				'max_carga' => (isset($g['max_carga']) ? (float) $g['max_carga'] : 0.0));
 		}
 		if ($items) {
 			$grupos[] = array('titulo' => $g['titulo'], 'unidad' => $g['unidad'], 'factor' => (float) $g['factor'], 'items' => $items);
 		}
 	}
 	return $grupos;
+}
+
+/**
+ * Lee y valida una cantidad escrita en Carga o Cierre según las reglas del item
+ * (sabrooskiposCargaGrupos). Con "entero" (mix en gramos) no se aceptan punto ni coma:
+ * Dolibarr lee "16.250" como 16,25 y se guardarían 16 g en vez de 16250 g. En una carga
+ * (no en el cierre, donde quedar con poco es normal) se exige además el rango min/max.
+ *
+ * @param array  $it       Item de sabrooskiposCargaGrupos()
+ * @param string $raw      Texto escrito
+ * @param bool   $esCarga  true en Carga/Reposición/Entrada; false en el conteo del Cierre
+ * @param array  $errors   Errores (por referencia)
+ * @return float|null  Cantidad en la unidad del item (sin el factor); null si vacío o inválido
+ */
+function sabrooskiposCargaValidar($it, $raw, $esCarga, &$errors)
+{
+	$raw = trim(str_replace(array(' ', "\xC2\xA0"), '', (string) $raw));
+	if ($raw === '') {
+		return null;
+	}
+	$u = $it['unidad'];
+	if (!empty($it['entero']) && !preg_match('/^\d+$/', $raw)) {
+		$errors[] = $it['label'].': "'.$raw.'" no es válido. Escribe los '.($u == 'g' ? 'gramos' : $u).' sin punto ni coma (16,250 kg = 16250 g).';
+		return null;
+	}
+	$v = (float) price2num($raw);
+	if ($esCarga && $v > 0) {
+		if ($it['min_carga'] > 0 && $v < $it['min_carga']) {
+			$errors[] = $it['label'].': '.$raw.' '.$u.' es muy poco para una carga (mínimo '.$it['min_carga'].' '.$u.'). ¿Lo escribiste en kg? 16,250 kg = 16250 g.';
+			return null;
+		}
+		if ($it['max_carga'] > 0 && $v > $it['max_carga']) {
+			$errors[] = $it['label'].': '.$raw.' '.$u.' supera el máximo de '.$it['max_carga'].' '.$u.' por carga. Revisa la cantidad.';
+			return null;
+		}
+	}
+	return $v;
 }
 
 /**

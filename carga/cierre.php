@@ -33,41 +33,53 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 $data = sabrooskiposRecetasLeer();
 $grupos = $data ? sabrooskiposCargaGrupos($db, $data) : array();
 
+$keep = array();
 if (GETPOST('action', 'aZ09') == 'guardar') {
-	$cont = GETPOST('conteo', 'array');
-	$factor = array();
+	$cont = (array) GETPOST('conteo', 'array');
+	$porId = array();
 	foreach ($grupos as $g) {
 		foreach ($g['items'] as $it) {
-			$factor[$it['id']] = $it['factor'];
-		}
-	}
-	$conteos = array();
-	foreach ((array) $cont as $pid => $v) {
-		$v = trim((string) $v);
-		if (isset($factor[(int) $pid]) && $v !== '') {
-			$conteos[(int) $pid] = (float) price2num($v) * $factor[(int) $pid];
+			$porId[$it['id']] = $it;
 		}
 	}
 	$errors = array();
-	$db->begin();
-	$r = sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, $errors);
-	// Traspaso de turno: lo que quedó (ya contado) pasa al camión del turno siguiente.
+	$conteos = array();
+	foreach ($cont as $pid => $v) {
+		if (!isset($porId[(int) $pid])) {
+			continue;
+		}
+		$it = $porId[(int) $pid];
+		$q = sabrooskiposCargaValidar($it, $v, false, $errors);
+		if ($q !== null) {
+			$conteos[(int) $pid] = $q * $it['factor'];
+		}
+	}
 	$tr = null;
-	if ($r >= 0 && GETPOST('traspasar', 'int') == 1) {
+	$r = -1;
+	$enTx = !$errors;
+	if ($enTx) {
+		$db->begin();
+		$r = sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, $errors);
+	}
+	// Traspaso de turno: lo que quedó (ya contado) pasa al camión del turno siguiente.
+	if ($enTx && $r >= 0 && GETPOST('traspasar', 'int') == 1) {
 		$tr = sabrooskiposTraspasoTurno($db, $user, $wh, $fecha, $errors);
 		if (!is_array($tr)) {
 			$r = -1;
 		}
 	}
-	if ($r >= 0) {
+	if ($enTx && $r >= 0) {
 		$db->commit();
 		setEventMessages('Cierre registrado: '.count($conteos).' productos contados, '.$r.' ajustes.'
 			.($tr ? ' Traspasados '.$tr['n'].' productos a '.$tr['destino']['ref'].' (turno del '.dol_print_date(dol_stringtotime($tr['destino']['fecha'].' 12:00:00'), '%d/%m/%Y').').' : ''), null, 'mesgs');
 		header('Location: '.$_SERVER['PHP_SELF'].'?wh='.$wh.'&fecha='.urlencode($fecha));
 		exit;
 	}
-	$db->rollback();
+	if ($enTx) {
+		$db->rollback();
+	}
 	setEventMessages('No se registró el cierre.', $errors, 'errors');
+	$keep = $cont; // se vuelve a mostrar lo contado para corregir sin reescribir todo
 }
 
 $stMovil = sabrooskiposStockAlmacen($db, $wh);
@@ -88,7 +100,7 @@ print '</select>';
 print 'Fecha del turno <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.submit()">';
 print '</form>';
 
-print '<div class="opacitymedium marginbottom">Escribe lo que queda en el camión al cerrar (el mix en kg). Lo que dejes vacío no se toca. '
+print '<div class="opacitymedium marginbottom">Escribe lo que queda en el camión al cerrar (el mix en <b>gramos</b>, sin punto ni coma: 9,4 kg = 9400).Lo que dejes vacío no se toca. '
 	.'Topping y sirope: pesa todo junto y escribe los gramos. Pirulín y Oreo: la diferencia es el consumo del turno. '
 	.'El resto (también topping y sirope) ya lo descontaron las ventas: la diferencia queda como ajuste '
 	.'y se ve en ReportesVentas → Insumos del móvil.</div>';
@@ -106,7 +118,9 @@ foreach ($grupos as $g) {
 		print '<tr class="oddeven"><td>'.dol_escape_htmltag($it['label']).' <span class="opacitymedium">'.dol_escape_htmltag($it['ref']).'</span></td>';
 		print '<td>'.dol_escape_htmltag($it['unidad']).'</td>';
 		print '<td class="right">'.sabrooskiposCant((isset($stMovil[$it['id']]) ? $stMovil[$it['id']] : 0) / $f).'</td>';
-		print '<td class="right"><input type="text" inputmode="decimal" class="flat right width75" name="conteo['.$it['id'].']" value=""></td></tr>';
+		$val = (isset($keep[$it['id']]) ? (string) $keep[$it['id']] : '');
+		print '<td class="right"><input type="text" inputmode="'.(!empty($it['entero']) ? 'numeric' : 'decimal').'" class="flat right width75" name="conteo['.$it['id'].']" value="'.dol_escape_htmltag($val).'"'
+			.(!empty($it['entero']) ? ' placeholder="gramos"' : '').'></td></tr>';
 	}
 }
 print '</table></div>';

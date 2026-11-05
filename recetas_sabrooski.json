@@ -102,7 +102,7 @@
     "SM-06": {"INS-050": 0.5, "INS-051": 0.5}
   },
   "carga": [
-    {"titulo": "Mix por sabor", "unidad": "kg", "factor": 1000, "refs": ["INS-050", "INS-051", "INS-052", "INS-053"], "categorias": ["Mix"]},
+    {"titulo": "Mix por sabor", "unidad": "g", "factor": 1, "entero": true, "min_carga": 100, "max_carga": 50000, "refs": ["INS-050", "INS-051", "INS-052", "INS-053"], "categorias": ["Mix"]},
     {"titulo": "Vasos, conos y envases", "unidad": "uds", "factor": 1, "categorias": ["Envases"]},
     {"titulo": "Siropes", "unidad": "g", "factor": 1, "categorias": ["Sirope"]},
     {"titulo": "Toppings", "unidad": "", "factor": 1, "categorias": ["Topping"]},

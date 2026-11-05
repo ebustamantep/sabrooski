@@ -33,7 +33,7 @@ Menú **SabrooskiVentas → Carga del camión** (permiso "Registrar carga y cier
 
 | Grupo | Unidad en que se escribe |
 | --- | --- |
-| Mix por sabor | kg (10 = 10 kg) |
+| Mix por sabor | **gramos**, sin punto ni coma (16,250 kg = `16250`). Una carga debe estar entre 100 g y 50.000 g por sabor; si no, no se registra nada y se avisa |
 | Vasos, conos y envases | unidades |
 | Siropes | gramos de **Sirope (granel)** |
 | Toppings | gramos de **Topping (granel)**; Oreo y Pirulín aparte, en unidades |
@@ -99,7 +99,7 @@ Un servido regalado o caído baja su receta completa (vaso o cono, cucharilla, m
 Menú **SabrooskiVentas → Cierre (conteo)**.
 
 1. Elige el móvil y la fecha del turno.
-2. Cuenta físicamente lo que queda y escríbelo en **Conteo**, en las mismas unidades que la carga (mix en kg). El topping y el sirope se **pesan todo junto** y se escriben en gramos en **Topping (granel)** y **Sirope (granel)**. Oreo y Pirulín se cuentan en unidades. La columna **Según sistema** sirve de referencia.
+2. Cuenta físicamente lo que queda y escríbelo en **Conteo**, en las mismas unidades que la carga (mix en **gramos**, sin punto ni coma: 9,4 kg = `9400`). El topping y el sirope se **pesan todo junto** y se escriben en gramos en **Topping (granel)** y **Sirope (granel)**. Oreo y Pirulín se cuentan en unidades. La columna **Según sistema** sirve de referencia.
 3. Deja vacío lo que no contaste: no se toca.
 4. Pulsa **Registrar cierre**, o **Registrar cierre y traspasar a …** para pasar el inventario al otro camión (ver abajo).
 
@@ -213,7 +213,7 @@ No agregues al kit el mix, el sirope, el topping ni el Pirulín/Oreo. Esos salen
 - **Producto individual** (se vende suelto y baja del camión al venderse: agua, golosina, Oreo…). Ejemplo, *Agua 500 ml*: **Productos → Nuevo producto** con **Ref.** `IND-002` (siguiente número libre), **Etiqueta** "Agua 500 ml", **En venta:** Sí, **En compra:** Sí, **Precio de venta** con IVA, **Tasa IVA**, **Gestion de stocks:** Sí, **Precio de costo** y **Unidad de control** `uds`. Deja vacíos Máx. sabores y Grupo de sabores, y no le pongas kit. En la pestaña **Categorías** asígnale **Individual**: así sale en esa pestaña del POS y de la Toma de orden, y en Carga del camión y Cierre (grupo *Individual y complementos*). Sin precio, déjalo con **En venta:** No.
 - **Insumo nuevo** (vaso, desechable): **Nuevo producto** con **En venta:** No, **En compra:** Sí, **Gestion de stocks:** Sí, **Precio de costo** por unidad y **Unidad de control** (`uds` o `g`). Asígnale una categoría de insumos (Envases, Desechables, Complementos); sin ella no aparece en Carga del camión ni en Cierre. Topping y sirope no llevan variedades: todo va a Topping (granel) y Sirope (granel).
 - **Congelado o empaquetado** (bandeja, sundae congelado): producto sin kit, con **Gestion de stocks:** Sí y categoría Bandejas 500 g, Sundae congelado o Empaquetado, para que entre en la carga y el cierre.
-- **Mix nuevo** (por ejemplo, Mix de mora): **Nuevo producto** con **Ref.** `INS-054` (siguiente libre), **En venta:** No, **En compra:** Sí, **Gestion de stocks:** Sí, **Precio de costo** por gramo y **Unidad de control** `g`. Categoría **Mix**. Así sale en Carga del camión, en Cierre (en kg) y en Insumos del móvil. Un mix solo no se vende: hace falta un sabor que lo use.
+- **Mix nuevo** (por ejemplo, Mix de mora): **Nuevo producto** con **Ref.** `INS-054` (siguiente libre), **En venta:** No, **En compra:** Sí, **Gestion de stocks:** Sí, **Precio de costo** por gramo y **Unidad de control** `g`. Categoría **Mix**. Así sale en Carga del camión, en Cierre (en gramos) y en Insumos del móvil. Un mix solo no se vende: hace falta un sabor que lo use.
 - **Sabor nuevo** (por ejemplo, Mora, o Mora-Fresa): **Nuevo producto** con **Ref.** `SM-07` (siguiente libre), **Etiqueta** con el nombre que verá el cajero, **En venta:** Sí, **En compra:** No, **Gestion de stocks:** No, precio 0. Categoría **Sabores mix**. En la pestaña **Kits** agrega el mix con la fracción que lleva: `1` si es un solo mix; `0.5` y `0.5` si es mitad y mitad. **No** marques *Incrementar/Decrementar stock* (el mix lo descuenta el módulo según los gramos del producto). El sabor aparece en la Toma de orden de todos los servidos, en gris hasta que se cargue su mix.
 
 ### Exportar e importar el catálogo

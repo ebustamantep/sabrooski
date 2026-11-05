@@ -779,3 +779,27 @@ duplicados vacíos y movió las cuatro bajo "Productos de punto de venta (POS)")
   Empaquetado en la raíz: quedaron bajo POS, 0 errores.
 - Pestaña "Cargar catálogo" retirada del Setup; `admin/cargar_catalogo.php` redirige a Migración.
   `test/cargar_catalogo_cli.php` sigue para pruebas. Manual y README actualizados.
+
+## 23. v1.15: mix en gramos y validación de cantidades (2026-11-05)
+
+Motivo: en producción el operador cargó el mix en gramos (16250) en un campo que pedía kg y se
+guardaron 16.250 kg; se hizo reset. Decisión del usuario: el mix se escribe en gramos.
+
+- Revisión: el mix **siempre se guardó en gramos** (stock, costo por g, receta `gramos_porcion`,
+  porciones del popup, traspaso, bajas). Los kg eran solo de pantalla: `recetas_sabrooski.json`
+  grupo "Mix por sabor" con `factor` 1000 en Carga/Cierre/Insumos, y una división fija entre 1000
+  en Inventario de ventas. **No hay datos que convertir**; en producción basta subir el zip.
+- `recetas_sabrooski.json`: grupo Mix `"unidad": "g", "factor": 1, "entero": true,
+  "min_carga": 100, "max_carga": 50000`. `sabrooskiposCargaGrupos()` pasa las reglas al item.
+- `sabrooskiposCargaValidar()`: con `entero`, solo dígitos (se ignoran espacios). Probado:
+  `price2num("16.250")` = 16,25 con es_VE, por eso se rechazan punto y coma. En cargas, rango
+  min/max (en Principal solo el mínimo: una compra puede ser grande); en el Cierre sin rango.
+  Si hay un error no se registra nada (ni se abre la transacción) y se conserva lo escrito.
+  Nota: un "Reponer lo que salió" menor a 100 g de un sabor se rechaza por el mínimo.
+- Reportes: Inventario de ventas "Mix de chocolate (g)"; Insumos "Mix sin sabor" en g.
+- Textos de Carga/Cierre y manual (tabla de unidades, cierre, mix nuevo) en gramos.
+- Pruebas: `test/mix_gramos_cli.php` (nueva: 16250, "16 250" OK; "16.250", "16,250", 16,
+  16250000 rechazados; cierre 50 OK, "9,4" rechazado; otros grupos aceptan decimales).
+  `ciclo_turno` y `bajas` ajustadas a gramos. Pasan: ciclo_turno, traspaso, bajas, sabores_mix,
+  servidos_inventario, recetas, reportes, granel, individual_venta.
+- Para revertir: reinstalar el zip 1.14 (no hay cambios de datos).

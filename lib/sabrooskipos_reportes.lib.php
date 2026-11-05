@@ -594,7 +594,7 @@ function sabrooskiposReporteInventario($data)
 	uasort($rows, function ($a, $b) {
 		return ($a['o'] - $b['o']) ?: strcmp($a['ref'], $b['ref']);
 	});
-	// El mix se lleva en gramos pero se carga y se cuenta en kg: aquí también en kg.
+	// El mix se lleva, se carga y se cuenta en gramos (v1.15; antes en kg): aquí también en g.
 	$esMix = array();
 	$resql = $db->query("SELECT cp.fk_product FROM ".MAIN_DB_PREFIX."categorie_product cp JOIN ".MAIN_DB_PREFIX."categorie c ON c.rowid = cp.fk_categorie WHERE c.label = 'Mix'");
 	while ($resql && ($o = $db->fetch_object($resql))) {
@@ -604,10 +604,7 @@ function sabrooskiposReporteInventario($data)
 	$tventas = 0;
 	foreach ($rows as $r) {
 		if (isset($esMix[$r['pid']]) && !$r['sin_stock']) {
-			foreach (array('ex', 'rep', 'vd', 'regalo', 'credito', 'danadas', 'receta', 'cierre') as $k) {
-				$r[$k] = $r[$k] / 1000;
-			}
-			$r['label'] .= ' (kg)';
+			$r['label'] .= ' (g)';
 		}
 		// Variedades viejas de topping/sirope (antes del granel) sin nada en el turno: no se muestran.
 		if (in_array($r['label'], array('Toppings (g)', 'Siropes (g)'))
@@ -943,7 +940,7 @@ function sabrooskiposReporteInsumos($data)
 				($deConteo ? ($t ? $t / $f : '') : $t / $f), ($deConteo ? '' : ($real - $t) / $f));
 		}
 		if ($g['titulo'] == 'Mix por sabor' && $mixSinSabor > 0) {
-			$filas[] = array('Mix sin sabor registrado (ventas fuera del popup)', 'kg', '', '', '', '', '', '', '', '', $mixSinSabor / 1000, '');
+			$filas[] = array('Mix sin sabor registrado (ventas fuera del popup)', 'g', '', '', '', '', '', '', '', '', $mixSinSabor, '');
 		}
 		// Totales de lo que se controla por conteo: real (todas las variedades) vs teórico
 		// (receta + adicionales + lo que ya descuentan los especiales por kit). Topping y sirope

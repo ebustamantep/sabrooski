@@ -1,5 +1,17 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.15
+
+- **Mix en gramos:** Carga del camión (existencia inicial, reposición y entrada a Principal),
+  Cierre, Insumos del móvil e Inventario de ventas muestran y piden el mix en **gramos** (antes
+  en kg con factor 1000). No cambia ningún dato: el mix siempre se guardó en gramos y la receta,
+  el traspaso, las regalías/dañadas y los costos siguen igual.
+- Validación del mix: solo números enteros, sin punto ni coma (Dolibarr lee "16.250" como 16,25);
+  en una carga, mínimo 100 g y máximo 50.000 g por sabor (Principal: solo el mínimo). Si algo no
+  cuadra no se registra nada y se conserva lo escrito para corregirlo.
+- Import del catálogo: una categoría que ya existe en otro nivel se mueve al padre del paquete.
+  Se retiró la pestaña "Cargar catálogo" (redirige a Migración).
+
 ## 1.14
 
 - **Traspaso de turno:** en Cierre, "Registrar cierre y traspasar a …" pasa todo lo que queda
