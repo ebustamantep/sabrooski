@@ -227,6 +227,8 @@ Un servido nuevo (por ejemplo, un vaso o un especial) se arma en dos pasos: la f
 3. Pulsa **Añadir**.
 4. Deja **Gestion de stocks** en No: el servido no lleva existencia propia, se controlan sus insumos.
 
+**Quitar o cambiar un insumo del kit.** La pestaña Kits no tiene botón de eliminar. En la lista de componentes del kit, pon la cantidad del insumo en **0** y pulsa **Guardar** (en la fila de totales, al pie de la lista): los que queden en 0 se borran. Con el mismo botón se cambian cantidades y la marca de descontar stock. Haz el cambio también en local: al importar el paquete, los kits de producción quedan igual que los de local.
+
 No agregues al kit el mix, el sirope, el topping ni el Pirulín/Oreo. Esos salen de los campos del paso 1, y si también van en el kit se descuentan dos veces.
 
 **Comprobar:** abre la Toma de orden y verifica que el producto sale en su pestaña y pide sabores. Luego revisa en **Costos y margen** que tenga costo; si sale en 0, a algún insumo le falta el precio de costo. Si el producto se creó en local, pasa a producción con el paquete de migración (los kits viajan en él).
