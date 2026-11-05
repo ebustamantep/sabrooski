@@ -105,6 +105,29 @@ Menú **SabrooskiVentas → Cierre (conteo)**.
 
 El sistema iguala la existencia al conteo. En Oreo y Pirulín la diferencia queda como "Consumo del turno (conteo)"; en lo demás (también topping y sirope, que ya bajaron al vender), como "Ajuste cierre (conteo)": es la merma, y se ve en el reporte de insumos.
 
+**Si el conteo no cuadra con el sistema (ejemplo con el mix).** *Según sistema* dice **15250 g** de Mix de chocolate, pero al pesar hay **14950 g**:
+
+1. Escribe en *Conteo* lo que pesaste: `14950`. No escribas lo que dice el sistema.
+2. Al registrar, el sistema saca **300 g** del camión como "Ajuste cierre (conteo)" y la existencia queda en 14950 g. Si traspasas, el turno siguiente recibe 14950 g: el faltante no pasa al otro turno.
+3. En **ReportesVentas → Insumos del móvil**, esos 300 g salen en **Diferencia** (consumo real menos consumo teórico de las ventas). Las ventas no cuentan como diferencia: cada venta ya descontó su receta al cobrarse.
+
+Esos 300 g son la **merma del turno**. Las causas más comunes son:
+
+- Porciones servidas más grandes que la receta (la más frecuente).
+- Mix perdido o botado: limpieza o purga de la máquina, derrames, lo que queda en la tolva.
+- Ventas que se sirvieron y no se marcaron en la caja.
+- Regalías o dañadas sin registrar. Si se registran antes del cierre, salen en su columna y no cuentan como diferencia.
+- Error al pesar.
+
+Buenas prácticas:
+
+- Pesa siempre en la misma balanza y sin el envase.
+- Registra las regalías y dañadas **antes** del cierre.
+- Una merma pequeña es normal en máquina. Si la diferencia pasa del margen que fije la administración (por ejemplo, 2–3 % de lo vendido), revísala con el encargado del turno.
+- Mira la tendencia: si un camión o un turno tiene siempre diferencias altas, revisa el tamaño de las porciones o las ventas sin registrar.
+
+Si el conteo es **mayor** que el sistema, el ajuste es una entrada y la diferencia sale negativa. Casi siempre es un error de pesaje o una carga sin registrar.
+
 **Traspaso de turno.** Lo que no se vendió pasa al camión del turno siguiente, y Principal solo repone lo que falta:
 
 1. Al cerrar el **AM**, pulsa **Registrar cierre y traspasar a Movil01PM**. Todo lo que queda en el camión (lo contado y, lo que no se contó, según el sistema) pasa al PM como **existencia inicial** de ese mismo día. El AM queda en 0.
