@@ -736,7 +736,7 @@ function sabrooskiposResetDatos($db, $user, &$report)
 	$ok = $ok && $db->query("UPDATE ".$pre."facture SET fk_facture_source = NULL WHERE rowid IN (".$en($fac).")");
 	$ok = $ok && $borrar('Tickets / facturas', "DELETE FROM ".$pre."facture WHERE rowid IN (".$en($fac).")");
 	foreach (array('pos_cash_fence' => 'Cierres de caja TakePOS', 'posplus_cashsession_line' => 'Cierres de caja (posplus)', 'posplus_cashsession' => 'Cierres de caja (posplus)',
-		'sabrooskipos_baja' => 'Regalías y dañadas') as $t => $que) {
+		'sabrooskipos_baja' => 'Regalías y dañadas', 'sabrooskipos_turno' => 'Conteos y devoluciones por turno') as $t => $que) {
 		if ($ok && $hay($t)) {
 			$ok = $borrar($que, "DELETE FROM ".$pre.$t);
 		}
