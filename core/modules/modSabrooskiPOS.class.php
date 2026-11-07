@@ -556,21 +556,33 @@ class modSabrooskiPOS extends DolibarrModules
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
 		// Máximo de sabores que se pueden elegir en este producto base
-		$extrafields->addExtraField('max_sabores', 'Máx. sabores', 'int', 100, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_sabores', 'Máx. sabores', 'int', 100, 3, 'product', 0, 0, '', '', 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Máximo de toppings incluidos en el precio (los que excedan se cobran aparte)
-		$extrafields->addExtraField('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_toppings_incluidos', 'Máx. toppings incluidos', 'int', 101, 3, 'product', 0, 0, '', '', 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Máximo de sirope que se puede elegir en este producto base
-		$extrafields->addExtraField('max_sirope', 'Máx. sirope', 'int', 102, 3, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('max_sirope', 'Máx. sirope', 'int', 102, 3, 'product', 0, 0, '', '', 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Grupo de sabores que ofrece el modal: mix (servidos), bandejas (empaquetado) o ninguno.
-		$extrafields->addExtraField('grupo_sabores', 'Grupo de sabores', 'select', 103, 0, 'product', 0, 0, '', array('options' => array('' => 'Ninguno', 'mix' => 'Mix (servidos)', 'bandejas' => 'Bandejas')), 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('grupo_sabores', 'Grupo de sabores', 'select', 103, 0, 'product', 0, 0, '', array('options' => array('' => 'Ninguno', 'mix' => 'Mix (servidos)', 'bandejas' => 'Bandejas')), 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		// Gramos de la porción principal (informativo: se muestra en la descripción del ticket).
-		$extrafields->addExtraField('gramos_porcion', 'Gramos por porción', 'varchar', 104, 16, 'product', 0, 0, '', '', 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+		$extrafields->addExtraField('gramos_porcion', 'Gramos por porción', 'varchar', 104, 16, 'product', 0, 0, '', '', 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result0=$extrafields->addExtraField('sabrooskipos_separator1', "Separator 1", 'separator', 1,  0, 'thirdparty',   0, 0, '', array('options'=>array(1=>1)), 1, '', 1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result1=$extrafields->addExtraField('sabrooskipos_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result2=$extrafields->addExtraField('sabrooskipos_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result3=$extrafields->addExtraField('sabrooskipos_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result4=$extrafields->addExtraField('sabrooskipos_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
 		//$result5=$extrafields->addExtraField('sabrooskipos_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', '', 'sabrooskipos@sabrooskipos', 'isModEnabled("sabrooskipos")');
+
+		// v1.16: los campos de receta se crearon ocultos (list = 0) y no salían en la ficha del
+		// producto. Se hacen visibles en los formularios (crear, modificar, ver), no en las listas.
+		// Solo los que siguen ocultos: si alguien ya les cambió la visibilidad, se respeta.
+		$this->db->query("UPDATE ".MAIN_DB_PREFIX."extrafields SET list = '3' WHERE elementtype = 'product'"
+			." AND name IN ('max_sabores', 'max_toppings_incluidos', 'max_sirope', 'grupo_sabores', 'gramos_porcion', 'gramos_sirope', 'gramos_topping', 'uds_pirulin_oreo', 'unidad_control')"
+			." AND (list = '0' OR list = '' OR list IS NULL)");
+		// perms = '' (texto vacío) se evalúa como "sin permiso" y Dolibarr oculta el campo al
+		// modificar el producto (pasaba con Máx. sabores / toppings / sirope). NULL = sin restricción.
+		$this->db->query("UPDATE ".MAIN_DB_PREFIX."extrafields SET perms = NULL, alwayseditable = 1 WHERE elementtype = 'product'"
+			." AND name IN ('max_sabores', 'max_toppings_incluidos', 'max_sirope', 'grupo_sabores', 'gramos_porcion', 'gramos_sirope', 'gramos_topping', 'uds_pirulin_oreo', 'unidad_control')"
+			." AND (perms = '' OR alwayseditable = 0)");
 
 		// v1.9: el almacén principal era de MovilStock; se copia si aún no está configurado.
 		if (!getDolGlobalInt('SABROOSKIPOS_ID_WAREHOUSE_MAIN') && getDolGlobalInt('MOVILSTOCK_ID_WAREHOUSE_MAIN')) {

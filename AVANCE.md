@@ -849,3 +849,11 @@ Movil01PM se retira (el diseño sirve para más camiones, uno por terminal).
 - Migración en producción: respaldo → cerrar sesión del Terminal 2 → devolver Movil01PM a
   Principal → TAKEPOS_NUM_TERMINALS = 1 → cerrar almacén Movil01PM → zip 1.16 → reactivar.
 - Pendiente: `sabrooskiposExportTurnos` (paquete de migración) sigue agrupando por día.
+- Fix (después del commit inicial de la 1.16): los extrafields de receta del producto estaban
+  ocultos (`list` = 0: grupo_sabores, gramos_porcion, gramos_sirope, gramos_topping,
+  uds_pirulin_oreo, unidad_control) y max_sabores/max_toppings_incluidos/max_sirope tenían
+  `perms` = '' (dol_eval lo toma como sin permiso → no salen al modificar). `init()` ahora pone
+  list = '3' (formularios crear/ver/modificar, no listas) a los que siguen en 0, y perms = NULL /
+  alwayseditable = 1. Las llamadas addExtraField usan list 3. Verificado renderizando
+  product/card.php (ver, modificar y nuevo): salen los 9 campos. Manual: "Dónde está la ficha
+  del producto".

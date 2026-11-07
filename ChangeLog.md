@@ -15,7 +15,12 @@
 - Los días anteriores a `SABROOSKIPOS_TURNOS_DESDE` (o sin POSPlus) siguen con las reglas de día
   completo. Requiere reactivar el módulo (tabla `llx_sabrooskipos_turno`, columna
   `fk_cashsession` en las bajas).
-- Manual: paso a paso del día en el camión (carga, turnos, cambio de turno, cierre del día).
+- Manual: paso a paso del día en el camión (carga, turnos, cambio de turno, cierre del día) y
+  de cómo crear un servido (ejemplo Barquilla Plus, con la receta real de la Barquilla).
+- **Campos de receta visibles en la ficha del producto.** Grupo de sabores, Gramos por porción,
+  Gramos de sirope/topping, Pirulín/Oreo y Unidad de control se habían creado ocultos, y Máx.
+  sabores/toppings/sirope no salían al modificar (permiso vacío). Al reactivar el módulo quedan
+  visibles y editables en crear, ver y modificar (no en las listas).
 
 ## 1.15
 

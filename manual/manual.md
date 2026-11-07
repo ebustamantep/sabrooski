@@ -257,9 +257,9 @@ Un servido (barquilla, sundae, vaso…) no tiene existencia propia: al venderlo,
 | Qué descuenta | Dónde se configura | Ejemplo en Barquilla Plus |
 | --- | --- | --- |
 | **Insumos que se cuentan por unidad** (cono, portacono, vaso, cucharilla, servilleta, domo) | Pestaña **Kits** del producto | 1 cono barquilla, 1 portacono, 1 servilleta |
-| **Mix** (helado), repartido entre los sabores que elige el cliente | Campo **Gramos por porción** de la ficha | 180 g |
-| **Sirope y topping a granel** | Campos **Gramos de sirope (receta)** y **Gramos de topping (receta)** | 10 g de sirope en el cono, 10 g de topping |
-| **Pirulín u Oreo** | Campo **Pirulín/Oreo (receta, uds)** | 0 |
+| **Mix** (helado), repartido entre los sabores que elige el cliente | Campo **Gramos por porción**, en la ficha del producto (pestaña **Producto**; ver *Dónde está la ficha del producto*) | 180 g |
+| **Sirope y topping a granel** | Campos **Gramos de sirope (receta)** y **Gramos de topping (receta)**, en la misma ficha | 10 g de sirope en el cono, 10 g de topping |
+| **Pirulín u Oreo** | Campo **Pirulín/Oreo (receta, uds)**, en la misma ficha | 0 |
 
 Antes de empezar, mira cómo está hecha la **Barquilla** normal (`PV-002`) y úsala de modelo. La Barquilla Plus del ejemplo lleva **el doble de mix** y **10 g de sirope dentro del cono**; lo demás queda igual:
 
@@ -293,6 +293,14 @@ La receta de la Barquilla viene de la hoja *Estructura de Costos Sistema.xlsx*. 
 
 Todos los insumos deben existir antes. Si el Plus usa un cono distinto, créalo primero como insumo (ver *Otros casos → Insumo nuevo*).
 
+**Dónde está la ficha del producto.** Es la pantalla principal de cada producto en Dolibarr:
+
+- **Producto nuevo:** menú superior **Productos** → en el menú de la izquierda, **Nuevo producto**. Es un formulario largo: los campos de la receta (**Máx. sabores**, **Grupo de sabores**, **Gramos por porción**, **Gramos de sirope (receta)**, **Gramos de topping (receta)**, **Pirulín/Oreo (receta, uds)**, **Unidad de control**) están **al final**, después de los datos normales (descripción, precio, IVA, peso…). Baja hasta el final antes de pulsar **Crear**.
+- **Producto existente:** menú superior **Productos** → **Lista** → busca por **Ref.** o **Etiqueta** (por ejemplo `PV-002`) → pulsa la referencia. Se abre la ficha en la pestaña **Producto**. Los campos de la receta salen en el cuadro de datos, con su valor (en la Barquilla: *Gramos por porción 90*, *Gramos de sirope (receta) 4*…). Para cambiarlos, pulsa el **lápiz** al lado del campo, o el botón **Modificar** al pie de la ficha (allí también están al final del formulario) y luego **Guardar**.
+- Las otras pestañas de la ficha son **Precios de venta**, **Kits** (los componentes, ver Paso 2), **Categorías**, **Stock**, etc.
+
+Si no ves los campos de la receta en la ficha, reactiva el módulo (Configuración → Sabrooski POS → Migración → **Reactivar módulo**): antes de la v1.16 algunos se creaban ocultos.
+
 #### Paso 1 — Crear la ficha del producto
 
 Menú **Productos → Nuevo producto**:
@@ -303,7 +311,7 @@ Menú **Productos → Nuevo producto**:
 4. **Precio de venta:** el precio final al público **con IVA incluido** (por ejemplo `2,00`), base de precio **TTC**, y **Tasa IVA** 16 %. Sin precio, déjalo con **En venta: No**: un producto sin precio no debe salir en la caja.
 5. **Gestion de stocks:** No (el servido no lleva existencia propia; se controlan sus insumos).
 6. No pongas **Precio de costo**: el costo del servido se calcula solo con su receta.
-7. Más abajo, en los campos del módulo, llena la receta:
+7. Al final del mismo formulario, en los campos del módulo, llena la receta:
 
 | Campo | Qué es | Barquilla Plus |
 | --- | --- | --- |

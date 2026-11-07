@@ -76,7 +76,7 @@ function sabrooskiposEnsureExtrafields($db)
 	);
 	foreach ($defs as $d) {
 		if (!isset($existing[$d[0]])) {
-			$extrafields->addExtraField($d[0], $d[1], $d[2], $d[3], $d[4], 'product', 0, 0, '', $d[5], 1, '', 0, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
+			$extrafields->addExtraField($d[0], $d[1], $d[2], $d[3], $d[4], 'product', 0, 0, '', $d[5], 1, '', 3, '', '', '', 'sabrooskipos@sabrooskipos', $cond);
 		}
 	}
 }
