@@ -261,7 +261,35 @@ Un servido (barquilla, sundae, vaso…) no tiene existencia propia: al venderlo,
 | **Sirope y topping a granel** | Campos **Gramos de sirope (receta)** y **Gramos de topping (receta)** | 10 g de sirope en el cono, 10 g de topping |
 | **Pirulín u Oreo** | Campo **Pirulín/Oreo (receta, uds)** | 0 |
 
-Antes de empezar, mira cómo está hecha la **Barquilla** normal (`PV-002`) y úsala de modelo: 90 g de mix, 4 g de sirope, 10 g de topping, y en el kit 1 cono barquilla (`INS-012`), 1 portacono (`INS-013`) y 1 servilleta (`INS-031`). La Barquilla Plus del ejemplo lleva **el doble de mix (180 g)** y **10 g de sirope dentro del cono**. Los gramos de sirope y topping del ejemplo son ilustrativos: usa los de tu receta (pésala una vez).
+Antes de empezar, mira cómo está hecha la **Barquilla** normal (`PV-002`) y úsala de modelo. La Barquilla Plus del ejemplo lleva **el doble de mix** y **10 g de sirope dentro del cono**; lo demás queda igual:
+
+| | Barquilla (receta real, `PV-002`) | Barquilla Plus (ejemplo, `PV-033`) |
+| --- | --- | --- |
+| Precio de venta (con IVA 16 %) | 1,15 $ | el que se defina (ej. 2,00 $) |
+| Máx. sabores | 1 | 1 |
+| Grupo de sabores | Mix (servidos) | Mix (servidos) |
+| **Gramos por porción (mix)** | **90 g** | **180 g** (el doble) |
+| **Gramos de sirope (receta)** | **4 g** | **10 g** (sirope en el cono) |
+| Gramos de topping (receta) | 10 g | 10 g |
+| Pirulín/Oreo (receta, uds) | 0 | 0 |
+| Kit: Cono barquilla `INS-012` | 1 | 1 |
+| Kit: Portacono `INS-013` | 1 | 1 |
+| Kit: Servilletas `INS-031` | 1 | 1 |
+| Categoría | Servido en camión | Servido en camión |
+
+Costo de la receta, con los costos actuales:
+
+| Concepto | Costo unitario | Barquilla | Barquilla Plus |
+| --- | --- | --- | --- |
+| Cono barquilla | 0,0563 $/ud | 0,0563 $ | 0,0563 $ |
+| Portacono | 0,0300 $/ud | 0,0300 $ | 0,0300 $ |
+| Servilletas | 0,0042 $/ud | 0,0042 $ | 0,0042 $ |
+| Mix | 0,002044 $/g | 90 g = 0,1840 $ | 180 g = 0,3679 $ |
+| Sirope (granel) | 0,0096 $/g | 4 g = 0,0384 $ | 10 g = 0,0960 $ |
+| Topping (granel) | 0,0126 $/g | 10 g = 0,1260 $ | 10 g = 0,1260 $ |
+| **Total** | | **0,4389 $** | **0,6804 $** |
+
+La receta de la Barquilla viene de la hoja *Estructura de Costos Sistema.xlsx*. Los gramos de sirope y topping del Plus son un ejemplo: usa los de tu receta (pésala una vez).
 
 Todos los insumos deben existir antes. Si el Plus usa un cono distinto, créalo primero como insumo (ver *Otros casos → Insumo nuevo*).
 
