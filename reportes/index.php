@@ -82,8 +82,11 @@ if ($terminal === '') {
 	$terminal = '1';
 }
 $action = GETPOST('action', 'aZ09');
+// v1.16: turno = sesión de caja POSPlus (0 = día completo). Sin parámetro, el último turno del día.
+$turnosDia = sabrooskiposTurnos($db, $terminal, $fecha);
+$sesion = (GETPOSTISSET('sesion') ? GETPOSTINT('sesion') : ($turnosDia ? (int) $turnosDia[count($turnosDia) - 1]['id'] : 0));
 
-$data = sabrooskiposReporteDatos($db, $fecha, $terminal);
+$data = sabrooskiposReporteDatos($db, $fecha, $terminal, $sesion);
 $enc = sabrooskiposReporteEncabezado($data);
 
 if ($action == 'excel' || $action == 'excelall') {
@@ -93,7 +96,8 @@ if ($action == 'excel' || $action == 'excelall') {
 			$list[] = call_user_func($def[1], $data);
 		}
 	}
-	$name = 'Sabrooski_'.($action == 'excelall' ? 'Planillas' : $reporte).'_'.$fecha.'_T'.$terminal.'.xlsx';
+	$name = 'Sabrooski_'.($action == 'excelall' ? 'Planillas' : $reporte).'_'.$fecha.'_T'.$terminal
+		.($data['turno'] > 0 ? '_turno'.$data['ventana']['n'] : '').(!empty($data['turno_abierto']) ? '_parcial' : '').'.xlsx';
 	sabrooskiposReporteExcel($list, $enc, $name);
 	exit;
 }
@@ -111,7 +115,7 @@ llxHeader('<style>
 </style>', $title, '', '', 0, 0, '', '', '', 'mod-sabrooskipos page-reportes');
 
 $self = $_SERVER['PHP_SELF'];
-$qs = '&fecha='.urlencode($fecha).'&terminal='.urlencode($terminal);
+$qs = '&fecha='.urlencode($fecha).'&terminal='.urlencode($terminal).'&sesion='.((int) $data['turno']);
 
 $head = array();
 $h = 0;
@@ -128,27 +132,46 @@ print dol_get_fiche_head($head, $reporte, '', -1);
 print '<form method="GET" action="'.$self.'" class="sbr-filter">';
 print '<input type="hidden" name="reporte" value="'.dol_escape_htmltag($reporte).'">';
 if ($turnos) {
-	print '<select name="turno" class="flat minwidth300" onchange="var v=this.value.split(\'|\');this.form.fecha.value=v[0];this.form.terminal.value=v[1];this.form.submit();">';
-	print '<option value="">— Turnos con ventas —</option>';
+	print '<select name="rapido" class="flat minwidth300" onchange="var v=this.value.split(\'|\');if(v.length<3)return;this.form.fecha.value=v[0];this.form.terminal.value=v[1];this.form.sesion.value=v[2];this.form.submit();">';
+	print '<option value="">— Turnos recientes —</option>';
 	foreach ($turnos as $t) {
-		$sel = ($t['fecha'] == $fecha && $t['terminal'] == $terminal) ? ' selected' : '';
-		print '<option value="'.dol_escape_htmltag($t['fecha'].'|'.$t['terminal']).'"'.$sel.'>'.dol_escape_htmltag($t['label']).'</option>';
+		$sel = ($t['fecha'] == $fecha && $t['terminal'] == $terminal && (int) $t['sesion'] == (int) $data['turno']) ? ' selected' : '';
+		print '<option value="'.dol_escape_htmltag($t['fecha'].'|'.$t['terminal'].'|'.((int) $t['sesion'])).'"'.$sel.'>'.dol_escape_htmltag($t['label']).'</option>';
 	}
 	print '</select>';
 }
-print 'Fecha <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'">';
-print 'Terminal <select name="terminal" class="flat">';
+// Al cambiar fecha o terminal, se vuelve al último turno de ese día.
+print 'Fecha <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.sesion.value=\'\';this.form.sesion.disabled=true;">';
+print 'Terminal <select name="terminal" class="flat" onchange="this.form.sesion.value=\'\';this.form.sesion.disabled=true;">';
 for ($t = 1; $t <= max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1)); $t++) {
 	print '<option value="'.$t.'"'.($t == $terminal ? ' selected' : '').'>'.dol_escape_htmltag(getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$t, 'Terminal '.$t)).'</option>';
 }
 print '</select>';
+if ($turnosDia && !$data['ventana']['legacy']) {
+	print 'Turno <select name="sesion" class="flat">';
+	foreach ($turnosDia as $t) {
+		print '<option value="'.$t['id'].'"'.($t['id'] == $data['turno'] ? ' selected' : '').'>'.dol_escape_htmltag($t['label']).'</option>';
+	}
+	print '<option value="0"'.($data['turno'] == 0 ? ' selected' : '').'>Día completo</option>';
+	print '</select>';
+} else {
+	print '<input type="hidden" name="sesion" value="0">';
+}
 print '<input type="submit" class="button smallpaddingimp" value="Ver">';
 print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excel&token='.newToken().'">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar a Excel</a>';
 print '<a class="button smallpaddingimp" href="'.$self.'?reporte='.$reporte.$qs.'&action=excelall&token='.newToken().'">'.img_picto('', 'file-excel', 'class="pictofixedwidth"').'Exportar las 4 planillas</a>';
 print '</form>';
 
 if (empty($data['tickets'])) {
-	print '<div class="warning">No hay tickets TakePOS validados para esa fecha y terminal.</div>';
+	print '<div class="warning">No hay tickets TakePOS validados en '.($data['ventana']['legacy'] ? 'esa fecha y terminal' : 'ese turno').'.</div>';
+}
+if (!empty($data['turno_abierto'])) {
+	print '<div class="warning">El turno sigue abierto (caja sin cierre X): los datos son parciales, hasta ahora.</div>';
+} elseif ($data['turno'] > 0) {
+	$m = sabrooskiposTurnoMarca($db, $data['turno'], $data['almacen']);
+	if ($m['conteo'] === '') {
+		print '<div class="warning">Este turno no tiene conteo de cierre: el cierre es lo que dice el sistema. Hazlo en SabrooskiVentas → Cambio de turno.</div>';
+	}
 }
 if ($data['almacen'] <= 0) {
 	print '<div class="warning">El terminal no tiene almacén configurado (CASHDESK_ID_WAREHOUSE'.dol_escape_htmltag($terminal).'): el stock sale vacío.</div>';

@@ -17,5 +17,6 @@ CREATE TABLE llx_sabrooskipos_baja (
 	status            integer DEFAULT 1 NOT NULL,
 	date_anula        datetime NULL,
 	fk_user_anula     integer NULL,
-	fk_user_autoriza_anula integer NULL
+	fk_user_autoriza_anula integer NULL,
+	fk_cashsession    integer NULL
 ) ENGINE=innodb;

@@ -12,7 +12,9 @@
  * \ingroup sabrooskipos
  * \brief   ReportesVentas: las planillas del turno (Camión congelados, Pago móvil y
  *          puntos, Especificaciones de ventas, Inventario de ventas) calculadas con los
- *          datos del sistema. Un turno = fecha + terminal TakePOS.
+ *          datos del sistema. Un turno = sesión de caja POSPlus del terminal (v1.16; ver
+ *          sabrooskipos_turnos.lib.php); sin POSPlus, o antes de SABROOSKIPOS_TURNOS_DESDE,
+ *          fecha + terminal TakePOS (día completo).
  *
  * Cada reporte devuelve una estructura neutra que se pinta en HTML o en Excel:
  *   array('titulo' => '', 'secciones' => array(
@@ -32,6 +34,7 @@
 
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
 
 /**
  * Turnos disponibles (fecha + terminal con tickets TakePOS validados), los más recientes primero.
@@ -43,17 +46,44 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 function sabrooskiposReporteTurnos($db, $limit = 60)
 {
 	global $conf;
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
 	$out = array();
+	// v1.16: los turnos son las sesiones de caja de POSPlus (desde SABROOSKIPOS_TURNOS_DESDE).
+	$porTurno = array();
+	if (sabrooskiposPosplusActivo($db)) {
+		$desde = getDolGlobalString('SABROOSKIPOS_TURNOS_DESDE');
+		$resql = $db->query("SELECT DISTINCT DATE(date_open) AS f, terminal FROM ".MAIN_DB_PREFIX."posplus_cashsession WHERE entity = ".((int) $conf->entity)
+			.($desde !== '' ? " AND date_open >= '".$db->escape($desde)." 00:00:00'" : "")." ORDER BY f DESC, terminal LIMIT ".((int) $limit));
+		$dias = array();
+		while ($resql && ($o = $db->fetch_object($resql))) {
+			$dias[] = array((string) $o->f, (string) $o->terminal);
+		}
+		foreach ($dias as $d) {
+			$name = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$d[1], 'Terminal '.$d[1]);
+			foreach (array_reverse(sabrooskiposTurnos($db, $d[1], $d[0])) as $t) {
+				$out[] = array('fecha' => $d[0], 'terminal' => $d[1], 'sesion' => $t['id'],
+					'label' => dol_print_date(dol_stringtotime($d[0].' 12:00:00'), 'day').' · '.$name.' · '.$t['label']);
+			}
+			$porTurno[$d[0].'|'.$d[1]] = 1;
+		}
+	}
+	// Días sin sesiones (o anteriores a los turnos): por fecha y terminal, como antes.
 	$sql = "SELECT f.datef, f.pos_source, COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."facture f";
 	$sql .= " WHERE f.entity = ".((int) $conf->entity)." AND f.module_source = 'takepos' AND f.fk_statut >= 1";
 	$sql .= " GROUP BY f.datef, f.pos_source ORDER BY f.datef DESC, f.pos_source LIMIT ".((int) $limit);
 	$resql = $db->query($sql);
 	while ($resql && ($o = $db->fetch_object($resql))) {
+		if (isset($porTurno[$o->datef.'|'.$o->pos_source]) || sabrooskiposModoTurnos($db, (string) $o->datef) && sabrooskiposTurnos($db, (string) $o->pos_source, (string) $o->datef)) {
+			continue;
+		}
 		$name = getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$o->pos_source, 'Terminal '.$o->pos_source);
-		$out[] = array('fecha' => $o->datef, 'terminal' => (string) $o->pos_source,
+		$out[] = array('fecha' => $o->datef, 'terminal' => (string) $o->pos_source, 'sesion' => 0,
 			'label' => dol_print_date($db->jdate($o->datef), 'day').' · '.$name.' ('.$o->nb.' tickets)');
 	}
-	return $out;
+	usort($out, function ($a, $b) {
+		return strcmp($b['fecha'], $a['fecha']) ?: ($b['sesion'] - $a['sesion']);
+	});
+	return array_slice($out, 0, $limit);
 }
 
 /**
@@ -62,28 +92,39 @@ function sabrooskiposReporteTurnos($db, $limit = 60)
  * @param DoliDB $db
  * @param string $fecha     'YYYY-MM-DD'
  * @param string $terminal
+ * @param int    $turno     sesión de caja POSPlus (v1.16); 0 = día completo
  * @return array
  */
-function sabrooskiposReporteDatos($db, $fecha, $terminal)
+function sabrooskiposReporteDatos($db, $fecha, $terminal, $turno = 0)
 {
 	global $conf;
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
 	$entity = (int) $conf->entity;
 	$wh = getDolGlobalInt('CASHDESK_ID_WAREHOUSE'.$terminal);
-	$d0 = $fecha.' 00:00:00';
-	$d1 = $fecha.' 23:59:59';
+	// Ventana: el turno (sesión de caja), el día por turnos o el día completo de antes (legacy).
+	$v = sabrooskiposTurnoVentana($db, $terminal, $fecha, (int) $turno);
+	$d1 = $v['t1'];
+	$en = function ($col) use ($db, $v) {
+		return sabrooskiposSqlEnTurno($db, $v, $col);
+	};
 
 	$data = array('fecha' => $fecha, 'terminal' => $terminal, 'almacen' => $wh,
 		'terminal_nombre' => getDolGlobalString('TAKEPOS_TERMINAL_NAME_'.$terminal, 'Terminal '.$terminal),
+		'turno' => (int) $v['id'], 'turno_label' => $v['label'], 'turno_abierto' => $v['abierta'], 'ventana' => $v,
 		'tickets' => array(), 'lineas' => array(), 'pagos' => array(), 'productos' => array(), 'tasa' => 0,
 		'hora_inicio' => '', 'hora_cierre' => '', 'usuarios' => array());
 
-	// Tickets del turno, con lo pagado.
+	// Tickets del turno, con lo pagado. Por turno: los validados dentro de la ventana. La hora
+	// de validación es la de su salida de stock (date_valid y datef son solo el día; datec es
+	// cuando se abrió el borrador; date_closing cambia si un crédito se cobra otro día).
+	$horaTicket = "COALESCE((SELECT MIN(sm.datem) FROM ".MAIN_DB_PREFIX."stock_mouvement sm WHERE sm.origintype = 'facture' AND sm.fk_origin = f.rowid), f.date_closing, f.datec)";
 	$sql = "SELECT f.rowid, f.ref, f.datec, f.total_ttc, f.note_private, s.nom AS cliente, u.firstname, u.lastname, u.login,";
 	$sql .= " (SELECT COALESCE(SUM(pf.amount), 0) FROM ".MAIN_DB_PREFIX."paiement_facture pf WHERE pf.fk_facture = f.rowid) AS pagado";
 	$sql .= " FROM ".MAIN_DB_PREFIX."facture f LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
 	$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_valid";
 	$sql .= " WHERE f.entity = ".$entity." AND f.module_source = 'takepos' AND f.fk_statut >= 1";
-	$sql .= " AND f.pos_source = '".$db->escape($terminal)."' AND f.datef = '".$db->escape($fecha)."'";
+	$sql .= " AND f.pos_source = '".$db->escape($terminal)."'";
+	$sql .= ($v['legacy'] ? " AND f.datef = '".$db->escape($fecha)."'" : " AND f.datef >= '".$db->escape(substr($v['t0'], 0, 10))."' AND ".$en($horaTicket));
 	$sql .= " ORDER BY f.datec, f.rowid";
 	$resql = $db->query($sql);
 	while ($resql && ($o = $db->fetch_object($resql))) {
@@ -98,6 +139,11 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 		$data['usuarios'][$uname !== '' ? $uname : (string) $o->login] = 1;
 	}
 	$ids = array_keys($data['tickets']);
+	if (!$v['legacy']) {
+		// Por turno, las horas son las de la caja (apertura y cierre X), no las de los tickets.
+		$data['hora_inicio'] = substr($v['date_open'], 11, 5);
+		$data['hora_cierre'] = ($v['abierta'] ? 'en curso' : substr($v['date_close'], 11, 5));
+	}
 
 	if ($ids) {
 		// Líneas de venta.
@@ -139,21 +185,26 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 
 	// Productos con stock o movimientos en el almacén del terminal, con su categoría de venta.
 	if ($wh > 0) {
+		// Ventana del turno (o del día): antes = existencia anterior, per = movimientos del turno.
+		$per = $en('m.datem');
+		$antes = sabrooskiposSqlAntesTurno($db, $v, 'm.datem');
 		$sql = "SELECT p.rowid, p.ref, p.label, p.price_ttc, p.tosell,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem < '".$d0."' THEN m.value ELSE 0 END), 0) AS s0,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$antes." THEN m.value ELSE 0 END), 0) AS s0,";
 		$sql .= " COALESCE(SUM(CASE WHEN m.datem <= '".$d1."' THEN m.value ELSE 0 END), 0) AS s1,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.origintype <> 'facture' AND m.label LIKE 'Existencia inicial%' THEN m.value ELSE 0 END), 0) AS inicial,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value > 0 AND m.label NOT LIKE 'Existencia inicial%' AND m.label NOT LIKE 'Ajuste%'"
-			." AND m.label NOT LIKE 'Regal%' AND m.label NOT LIKE 'Dañad%' THEN m.value ELSE 0 END), 0) AS rep,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND m.origintype <> 'facture' AND m.label LIKE 'Existencia inicial%' THEN m.value ELSE 0 END), 0) AS inicial,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND COALESCE(m.origintype, '') <> 'facture' AND m.value > 0 AND m.label NOT LIKE 'Existencia inicial%' AND m.label NOT LIKE 'Ajuste%'"
+			." AND m.label NOT LIKE 'Regal%' AND m.label NOT LIKE 'Dañad%' AND m.label NOT LIKE 'Devolución%' THEN m.value ELSE 0 END), 0) AS rep,";
 		// Regalías y dañadas netas (una anulada entra en positivo con la misma etiqueta + "anulada").
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Regal%' THEN -m.value ELSE 0 END), 0) AS regalo,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Dañad%' THEN -m.value ELSE 0 END), 0) AS danadas,";
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Crédito%' THEN -m.value ELSE 0 END), 0) AS credito_mov,";
-		// Traspaso de turno: lo que pasó al camión siguiente era la existencia al cierre.
-		$sql .= " COALESCE(SUM(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Traspaso de turno%' THEN -m.value ELSE 0 END), 0) AS traspaso,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Regal%' THEN -m.value ELSE 0 END), 0) AS regalo,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND COALESCE(m.origintype, '') <> 'facture' AND m.label LIKE 'Dañad%' THEN -m.value ELSE 0 END), 0) AS danadas,";
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND COALESCE(m.origintype, '') <> 'facture' AND m.value < 0 AND m.label LIKE 'Crédito%' THEN -m.value ELSE 0 END), 0) AS credito_mov,";
+		// Traspaso de turno (legacy, hasta v1.15): lo que pasó al camión siguiente era la existencia al cierre.
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND m.label LIKE 'Traspaso de turno%' THEN -m.value ELSE 0 END), 0) AS traspaso,";
+		// v1.16: la devolución a Principal del cierre del día también era la existencia al cierre.
+		$sql .= " COALESCE(SUM(CASE WHEN ".$per." AND m.label LIKE 'Devolución a Principal%' THEN -m.value ELSE 0 END), 0) AS devol,";
 		// Salidas por los tickets del turno (producto vendido o insumo de su receta).
 		$sql .= " COALESCE(SUM(CASE WHEN m.origintype = 'facture' AND m.fk_origin IN (".($ids ? implode(',', $ids) : '0').") THEN -m.value ELSE 0 END), 0) AS fac,";
-		$sql .= " GROUP_CONCAT(CASE WHEN m.datem BETWEEN '".$d0."' AND '".$d1."' AND m.label LIKE 'Regal%' AND m.value < 0"
+		$sql .= " GROUP_CONCAT(CASE WHEN ".$per." AND m.label LIKE 'Regal%' AND m.value < 0"
 			." AND NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."stock_mouvement ma WHERE ma.inventorycode = CONCAT(m.inventorycode, '-A')) THEN m.label END SEPARATOR ' | ') AS regalo_labels";
 		$sql .= " FROM ".MAIN_DB_PREFIX."product p JOIN ".MAIN_DB_PREFIX."stock_mouvement m ON m.fk_product = p.rowid AND m.fk_entrepot = ".((int) $wh);
 		$sql .= " WHERE p.entity = ".$entity;
@@ -162,7 +213,7 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 		while ($resql && ($o = $db->fetch_object($resql))) {
 			$data['productos'][(int) $o->rowid] = array('ref' => $o->ref, 'label' => $o->label, 'precio' => (float) $o->price_ttc, 'tosell' => (int) $o->tosell,
 				'ex' => (float) $o->s0 + (float) $o->inicial, 'anterior' => (float) $o->s0, 'inicial' => (float) $o->inicial, 'rep' => (float) $o->rep, 'regalo' => (float) $o->regalo, 'danadas' => (float) $o->danadas,
-				'credito_mov' => (float) $o->credito_mov, 'fac' => (float) $o->fac, 'cierre' => (float) $o->s1 + (float) $o->traspaso, 'traspaso' => (float) $o->traspaso, 'regalo_conos' => sabrooskiposConos((string) $o->regalo_labels, true),
+				'credito_mov' => (float) $o->credito_mov, 'fac' => (float) $o->fac, 'cierre' => (float) $o->s1 + (float) $o->traspaso + (float) $o->devol, 'traspaso' => (float) $o->traspaso, 'devol' => (float) $o->devol, 'regalo_conos' => sabrooskiposConos((string) $o->regalo_labels, true),
 				'categoria' => '', 'vd' => 0, 'vd_conos' => 0, 'vd_total' => 0, 'del' => 0, 'del_conos' => 0);
 		}
 	}
@@ -179,7 +230,7 @@ function sabrooskiposReporteDatos($db, $fecha, $terminal)
 	$data['bajas'] = array();
 	if ($wh > 0) {
 		require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_bajas.lib.php';
-		$data['bajas'] = sabrooskiposBajasDia($db, $wh, $fecha);
+		$data['bajas'] = ($v['legacy'] ? sabrooskiposBajasDia($db, $wh, $fecha) : sabrooskiposBajasTurno($db, $wh, $v['ids']));
 		foreach ($data['bajas'] as $b) {
 			$r = sabrooskiposReceta($db, $b['fk_product']);
 			if (!$r['kit'] && $r['mix_g'] <= 0) {
@@ -265,10 +316,14 @@ function sabrooskiposReporteEncabezado($data)
 {
 	$dias = array('Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado');
 	$ts = dol_stringtotime($data['fecha'].' 12:00:00');
+	$turno = $data['terminal_nombre'].' (terminal '.$data['terminal'].')';
+	if (!empty($data['ventana']) && empty($data['ventana']['legacy'])) {
+		$turno = $data['turno_label'].' · '.$data['terminal_nombre'].(!empty($data['turno_abierto']) ? ' · EN CURSO (datos parciales)' : '');
+	}
 	return array(
 		array('Fecha', dol_print_date($ts, '%d/%m/%Y')),
 		array('Día', $dias[(int) dol_print_date($ts, '%w')]),
-		array('Turno', $data['terminal_nombre'].' (terminal '.$data['terminal'].')'),
+		array('Turno', $turno),
 		array('Hora de inicio / cierre', ($data['hora_inicio'] ?: '-').' / '.($data['hora_cierre'] ?: '-')),
 		array('Tasa del día (Bs/$)', $data['tasa'] ? price($data['tasa'], 0, '', 1, -1, 2) : '-'),
 		array('Usuario(s)', implode(', ', array_keys($data['usuarios']))),
@@ -889,7 +944,7 @@ function sabrooskiposReporteInsumos($data)
 	$ventasMov = array();
 	if ($wh > 0) {
 		$resql = $db->query("SELECT fk_product, SUM(value) AS v FROM ".$pre."stock_mouvement WHERE fk_entrepot = ".$wh." AND origintype = 'facture'"
-			." AND datem BETWEEN '".$db->escape($data['fecha'])." 00:00:00' AND '".$db->escape($data['fecha'])." 23:59:59' GROUP BY fk_product");
+			." AND ".sabrooskiposSqlEnTurno($db, $data['ventana'], 'datem')." GROUP BY fk_product");
 		while ($resql && ($o = $db->fetch_object($resql))) {
 			$ventasMov[(int) $o->fk_product] = -(float) $o->v;
 		}
@@ -898,7 +953,8 @@ function sabrooskiposReporteInsumos($data)
 	$datos = sabrooskiposRecetasLeer();
 	$grupos = $datos ? sabrooskiposCargaGrupos($db, $datos) : array();
 	// Existencia anterior = lo que había antes del día; Carga inicial = "Existencia inicial…"
-	// (carga de la mañana o traspaso de turno); Reposición = cargas durante el turno.
+	// (carga de la mañana); Reposición = cargas durante el turno. Por turnos, la existencia anterior del
+	// PM es lo que dejó el AM tras su conteo.
 	$cols = array(array('Insumo', 'text'), array('Unidad', 'text'), array('Existencia anterior', 'num'), array('Carga inicial', 'num'), array('Reposición', 'num'), array('Total', 'num'),
 		array('Regalías y dañadas', 'num'), array('Cierre', 'num'), array('Consumo real', 'num'), array('Descontado por ventas', 'num'),
 		array('Consumo teórico', 'num'), array('Diferencia', 'num'));
@@ -966,7 +1022,7 @@ function sabrooskiposReporteInsumos($data)
 		}
 	}
 	return array('titulo' => 'SABROOSKI – INSUMOS DEL MÓVIL', 'hoja' => 'Insumos',
-		'nota' => 'Consumo real = existencia anterior + carga inicial + reposición − regalías/dañadas − cierre. Carga inicial incluye el traspaso del turno anterior. Topping y sirope van a granel (en gramos) y bajan al vender según la receta; '
+		'nota' => 'Consumo real = existencia anterior + carga inicial + reposición − regalías/dañadas − cierre. Por turnos, la existencia anterior es lo que dejó el turno anterior después de su conteo. Topping y sirope van a granel (en gramos) y bajan al vender según la receta; '
 			.'Pirulín y Oreo se comparan en total contra el conteo. '
 			.'Sin conteo de cierre, el cierre es lo que dice el sistema.',
 		'secciones' => $secciones);

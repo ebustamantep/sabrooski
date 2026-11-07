@@ -1123,16 +1123,20 @@ function sabrooskiposPasarAGranel($db, $user, &$errors)
  * @param array  $conteos  [fk_product => cantidad contada en unidad de control; '' = no contado]
  * @param string $fecha    'YYYY-MM-DD'
  * @param array  $errors   (por referencia)
+ * @param array|null $turno turno (sesión de caja, v1.16): el conteo es de ese turno; si ya cerró,
+ *                          los ajustes se fechan en su cierre X (regla del hueco)
  * @return int   nº de ajustes (>=0) o <0 error
  */
-function sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, &$errors)
+function sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, &$errors, $turno = null)
 {
 	if ($wh <= 0) {
 		$errors[] = 'Elige el almacén del móvil.';
 		return -1;
 	}
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
+	$porTurno = ($turno && empty($turno['legacy']) && !empty($turno['id']));
 	$stock = sabrooskiposStockAlmacen($db, $wh);
-	$code = 'CIERRE-'.dol_print_date(dol_now(), '%Y%m%d%H%M%S');
+	$code = 'CIERRE-'.($porTurno ? 'S'.$turno['id'].'-' : '').dol_print_date(dol_now(), '%Y%m%d%H%M%S');
 	$n = 0;
 	foreach ($conteos as $pid => $contado) {
 		if ($contado === '' || $contado === null) {
@@ -1156,133 +1160,73 @@ function sabrooskiposRegistrarCierre($db, $user, $wh, $conteos, $fecha, &$errors
 		}
 		$n++;
 	}
-	sabrooskiposFecharMovimientos($db, $fecha, '23:00:00', "inventorycode = '".$db->escape($code)."'");
+	if ($porTurno) {
+		sabrooskiposSellarCierre($db, $turno, "inventorycode = '".$db->escape($code)."'");
+		if (!sabrooskiposTurnoMarcar($db, $user, $turno['id'], $wh, 'conteo', $code)) {
+			$errors[] = 'No se pudo marcar el conteo del turno (¿módulo sin reactivar?): '.$db->lasterror();
+			return -1;
+		}
+	} else {
+		sabrooskiposFecharMovimientos($db, $fecha, '23:00:00', "inventorycode = '".$db->escape($code)."'");
+	}
 	return $n;
 }
 
 /* ====================================================================== *
- * Traspaso de turno: lo que queda en un camión pasa al del turno siguiente
+ * Cierre del día: todo lo que queda en el camión vuelve a Principal (v1.16)
+ * (reemplaza al traspaso entre camiones AM → PM de la v1.14)
  * ====================================================================== */
 
 /**
- * Turno siguiente de un móvil: el del terminal que sigue, el mismo día (AM → PM); desde el
- * último terminal, el primero del día siguiente (PM → AM).
+ * Devuelve a Principal todo lo que queda en el móvil (existencia > 0), después del conteo
+ * final del día. En el móvil sale como "Devolución a Principal …" fechada en el cierre del
+ * turno (los reportes la cuentan como existencia al cierre, igual que el traspaso de antes);
+ * en Principal entra a la hora real. Código DEVOL-S<sesión>-…. No abre transacción.
  *
- * @param DoliDB $db
- * @param int    $wh     almacén del móvil que cierra
- * @param string $fecha  'YYYY-MM-DD' del turno que cierra
- * @return array{wh:int,fecha:string,ref:string}|null  null si no hay otro móvil
+ * @param DoliDB     $db
+ * @param User       $user
+ * @param int        $wh      almacén del móvil
+ * @param array|null $turno   turno que cierra (sesión de caja); null = sin turnos (hoy)
+ * @param array      $errors  (por referencia)
+ * @return int  nº de productos devueltos (>=0) o <0 si error
  */
-function sabrooskiposTurnoSiguiente($db, $wh, $fecha)
+function sabrooskiposDevolverPrincipal($db, $user, $wh, $turno, &$errors)
 {
-	$terms = array(); // [terminal => almacén], en orden
-	for ($t = 1; $t <= max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1)); $t++) {
-		$w = getDolGlobalInt('CASHDESK_ID_WAREHOUSE'.$t);
-		if ($w > 0 && !in_array($w, $terms)) {
-			$terms[$t] = $w;
-		}
-	}
-	$lista = array_values($terms);
-	$i = array_search((int) $wh, $lista);
-	if ($i === false || count($lista) < 2) {
-		return null;
-	}
-	$sig = ($i + 1) % count($lista);
-	$f = ($sig == 0 ? dol_print_date(dol_time_plus_duree(dol_stringtotime($fecha.' 12:00:00'), 1, 'd'), '%Y-%m-%d') : $fecha);
-	$o = $db->fetch_object($db->query("SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int) $lista[$sig])));
-	return array('wh' => (int) $lista[$sig], 'fecha' => $f, 'ref' => ($o ? (string) $o->ref : 'Almacén '.$lista[$sig]));
-}
-
-/**
- * Traspasa todo lo que queda en un móvil (existencia > 0) al del turno siguiente. En el
- * origen sale como "Traspaso de turno → X" al cierre del día (los reportes lo cuentan como
- * existencia al cierre); en el destino entra como "Existencia inicial · traspaso de Y" en la
- * fecha de su turno (los reportes lo cuentan como existencia). No abre transacción.
- *
- * @param DoliDB $db
- * @param User   $user
- * @param int    $wh      almacén del móvil que cierra
- * @param string $fecha   'YYYY-MM-DD' del turno que cierra
- * @param array  $errors  (por referencia)
- * @return array{n:int,destino:array}|int  <0 si error
- */
-function sabrooskiposTraspasoTurno($db, $user, $wh, $fecha, &$errors)
-{
-	$dst = sabrooskiposTurnoSiguiente($db, $wh, $fecha);
-	if (!$dst) {
-		$errors[] = 'No hay otro móvil configurado para el turno siguiente (TakePOS → almacén de cada terminal).';
+	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
+	$main = sabrooskiposAlmacenPrincipal($db);
+	if ($main <= 0 || $wh <= 0 || $wh == $main) {
+		$errors[] = 'Falta el almacén principal o el del móvil.';
 		return -1;
 	}
-	$o = $db->fetch_object($db->query("SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int) $wh)));
-	$srcRef = ($o ? (string) $o->ref : 'Almacén '.$wh);
-	$code = 'TRASPASO-'.dol_print_date(dol_now(), '%Y%m%d%H%M%S').'-'.substr(uniqid(), -4);
-	$n = 0;
-	foreach (sabrooskiposStockAlmacen($db, $wh) as $pid => $q) {
-		$q = round($q, 4);
-		if ($q <= 0) {
-			continue;
-		}
-		$p = new Product($db);
-		if ($p->fetch($pid) <= 0) {
-			continue;
-		}
-		if ($p->correct_stock($user, $wh, $q, 1, 'Traspaso de turno → '.$dst['ref'], $p->pmp, $code) <= 0
-			|| $p->correct_stock($user, $dst['wh'], $q, 0, 'Existencia inicial · traspaso de '.$srcRef, $p->pmp, $code) <= 0) {
-			$errors[] = $p->ref.': '.$p->error;
+	$porTurno = ($turno && empty($turno['legacy']) && !empty($turno['id']));
+	if ($porTurno) {
+		$m = sabrooskiposTurnoMarca($db, $turno['id'], $wh);
+		if ($m['devol'] !== '') {
+			$errors[] = 'Este turno ya se devolvió a Principal ('.$m['devol_code'].').';
 			return -1;
 		}
-		$n++;
 	}
-	if ($n > 0) {
-		sabrooskiposFecharMovimientos($db, $fecha, '23:30:00', "inventorycode = '".$db->escape($code)."' AND fk_entrepot = ".((int) $wh));
-		// El destino entra en la fecha de su turno (mañana, si es el primero del día siguiente).
-		if ($dst['fecha'] !== $fecha) {
-			$db->query("UPDATE ".MAIN_DB_PREFIX."stock_mouvement SET datem = '".$db->escape($dst['fecha'])." 06:00:00' WHERE inventorycode = '".$db->escape($code)."' AND fk_entrepot = ".((int) $dst['wh']));
-		} else {
-			sabrooskiposFecharMovimientos($db, $fecha, '12:00:00', "inventorycode = '".$db->escape($code)."' AND fk_entrepot = ".((int) $dst['wh']));
+	$fechatxt = dol_print_date(dol_stringtotime(($porTurno ? $turno['fecha'] : dol_print_date(dol_now(), '%Y-%m-%d')).' 12:00:00'), '%d/%m/%Y');
+	$code = 'DEVOL-'.($porTurno ? 'S'.$turno['id'].'-' : '').dol_print_date(dol_now(), '%Y%m%d%H%M%S').'-'.substr(uniqid(), -4);
+	$label = 'Devolución a Principal '.$fechatxt.' · '.$code;
+	$lines = array();
+	foreach (sabrooskiposStockAlmacen($db, $wh) as $pid => $q) {
+		$q = round($q, 4);
+		if ($q > 0) {
+			$lines[(int) $pid] = $q;
 		}
 	}
-	return array('n' => $n, 'destino' => $dst);
+	$n = ($lines ? sabrooskiposTraslado($db, $user, $wh, $main, $lines, $label, $code, $errors) : 0);
+	if ($n < 0) {
+		return -1;
+	}
+	if ($porTurno) {
+		sabrooskiposSellarCierre($db, $turno, "inventorycode = '".$db->escape($code)."' AND fk_entrepot = ".((int) $wh));
+		if (!sabrooskiposTurnoMarcar($db, $user, $turno['id'], $wh, 'devol', $code)) {
+			$errors[] = 'No se pudo marcar la devolución del turno: '.$db->lasterror();
+			return -1;
+		}
+	}
+	return $n;
 }
 
-/**
- * Lo que salió en el turno anterior de un móvil, por producto (existencia + cargas −
- * existencia al cierre del móvil de donde vino el último traspaso): sirve para reponer.
- *
- * @param DoliDB $db
- * @param int    $wh  almacén del móvil que recibió el traspaso
- * @return array{origen:string,fecha:string,salidas:array<int,float>}|null
- */
-function sabrooskiposSalidasTurnoAnterior($db, $wh)
-{
-	$pre = MAIN_DB_PREFIX;
-	$o = $db->fetch_object($db->query("SELECT inventorycode FROM ".$pre."stock_mouvement WHERE fk_entrepot = ".((int) $wh)
-		." AND inventorycode LIKE 'TRASPASO-%' AND value > 0 ORDER BY rowid DESC LIMIT 1"));
-	if (!$o) {
-		return null;
-	}
-	$s = $db->fetch_object($db->query("SELECT m.fk_entrepot, DATE(m.datem) AS f, e.ref FROM ".$pre."stock_mouvement m JOIN ".$pre."entrepot e ON e.rowid = m.fk_entrepot"
-		." WHERE m.inventorycode = '".$db->escape($o->inventorycode)."' AND m.value < 0 LIMIT 1"));
-	if (!$s) {
-		return null;
-	}
-	$term = 0;
-	for ($t = 1; $t <= max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1)); $t++) {
-		if (getDolGlobalInt('CASHDESK_ID_WAREHOUSE'.$t) == (int) $s->fk_entrepot) {
-			$term = $t;
-			break;
-		}
-	}
-	require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_reportes.lib.php';
-	$data = sabrooskiposReporteDatos($db, (string) $s->f, (string) $term);
-	$out = array();
-	foreach ($data['productos'] as $pid => $p) {
-		if (empty($p['sin_stock'])) {
-			$v = $p['ex'] + $p['rep'] - $p['cierre'];
-			if ($v > 0.0001) {
-				$out[(int) $pid] = $v;
-			}
-		}
-	}
-	return array('origen' => (string) $s->ref, 'fecha' => (string) $s->f, 'salidas' => $out);
-}

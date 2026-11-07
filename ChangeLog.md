@@ -1,5 +1,22 @@
 # CHANGELOG MODULE SABROOSKIPOS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.16
+
+- **Un camión, varios turnos al día.** El turno es la sesión de caja de POSPlus (de la
+  apertura al cierre X o Z): la 1.ª del día es el AM y la 2.ª el PM, en el mismo camión
+  (terminal y almacén). Ya no hay traspaso entre camiones.
+- **Cambio de turno** (menú nuevo): cerrar caja X → contar el camión (las diferencias son del
+  turno que cerró) → reponer desde Principal lo que salió → abrir el turno siguiente. En la
+  noche, tras el cierre Z y el conteo final: **Devolver todo a Principal** (el camión queda en 0).
+- Reportes por **turno** o **día completo**. Un ticket cuenta en el turno en que se cobró. Aviso
+  de turno abierto (datos parciales) y de turno sin conteo.
+- Regalías y dañadas ligadas al turno; las registradas con la caja ya cerrada son del turno que
+  cerró. Conteo y regalías del hueco entre turnos se fechan en el cierre de caja.
+- Los días anteriores a `SABROOSKIPOS_TURNOS_DESDE` (o sin POSPlus) siguen con las reglas de día
+  completo. Requiere reactivar el módulo (tabla `llx_sabrooskipos_turno`, columna
+  `fk_cashsession` en las bajas).
+- Manual: paso a paso del día en el camión (carga, turnos, cambio de turno, cierre del día).
+
 ## 1.15
 
 - **Mix en gramos:** Carga del camión (existencia inicial, reposición y entrada a Principal),

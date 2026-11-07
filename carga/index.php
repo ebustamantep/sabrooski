@@ -33,8 +33,11 @@ $wh = GETPOSTINT('wh');
 if (!isset($moviles[$wh])) {
 	$wh = (int) key($moviles);
 }
+// v1.16: por turnos (POSPlus) la carga se registra a la hora real: la existencia inicial y
+// la reposición son del turno que está abierto o del siguiente que se abra (regla del hueco).
+$turno = sabrooskiposTurnoElegido($db, $wh);
 $fecha = GETPOST('fecha', 'alphanohtml');
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+if ($turno || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 	$fecha = dol_print_date(dol_now(), '%Y-%m-%d');
 }
 $main = sabrooskiposAlmacenPrincipal($db);
@@ -103,8 +106,20 @@ if ($tipo != 'principal') {
 	}
 	print '</select>';
 }
-print 'Fecha <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.submit()">';
+if (!$turno) {
+	print 'Fecha <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.submit()">';
+}
 print '</form>';
+if ($turno && $tipo != 'principal') {
+	print '<div class="info">'.($turno['abierta']
+		? 'Caja abierta: <b>'.dol_escape_htmltag($turno['corto']).'</b> (desde las '.dol_escape_htmltag(substr($turno['date_open'], 11, 5)).'). La carga cuenta para este turno.'
+		: 'Caja cerrada (último: <b>'.dol_escape_htmltag($turno['corto']).'</b>, cerrado a las '.dol_escape_htmltag(substr($turno['date_close'], 11, 5)).'). La carga cuenta para el turno que se abra después.')
+		.'</div>';
+	if ($tipo == 'inicial' && $turno['abierta'] && $turno['fecha'] < $fecha) {
+		print '<div class="warning">La caja está abierta desde el '.dol_escape_htmltag(dol_print_date(dol_stringtotime($turno['fecha'].' 12:00:00'), '%d/%m')).': '
+			.'cierra primero esa caja en POSPlus, si no, esta carga contará para ese turno.</div>';
+	}
+}
 
 if (!$data) {
 	print '<div class="error">No se pudo leer recetas_sabrooski.json.</div>';
@@ -115,13 +130,15 @@ if (!$data) {
 		? 'Suma la cantidad al almacén Principal (compras o conteo inicial). El mix en <b>gramos</b>, sin punto ni coma (16,250 kg = 16250). Después se carga el móvil con "Existencia inicial" o "Reposición".'
 		: 'Traslada de Principal al móvil. No se puede cargar más de lo que hay en Principal. El mix se carga en <b>gramos</b>, sin punto ni coma (16,250 kg = 16250). '
 			.'Topping y sirope van a granel, en gramos (todas las variedades juntas).').'</div>';
-	// Reposición después de un traspaso de turno: lo que salió en el turno anterior, para
-	// reponer solo eso (el resto ya lo trajo el traspaso).
-	$ant = ($tipo == 'reposicion' ? sabrooskiposSalidasTurnoAnterior($db, $wh) : null);
+	// Reposición entre turnos (caja cerrada): lo que salió en el turno que cerró, para que el
+	// siguiente empiece como empezó aquel.
+	$ant = null;
+	if ($tipo == 'reposicion' && $turno && !$turno['abierta']) {
+		$ant = array('origen' => $turno['corto'], 'fecha' => $turno['fecha'], 'salidas' => sabrooskiposSalioEnTurno($db, $turno));
+	}
 	if ($ant) {
-		print '<div class="info">Este móvil recibió el traspaso de <b>'.dol_escape_htmltag($ant['origen']).'</b> (turno del '
-			.dol_print_date(dol_stringtotime($ant['fecha'].' 12:00:00'), '%d/%m/%Y').'). La columna <b>Salió en el turno anterior</b> es lo que se vendió, regaló o '
-			.'mermó en ese turno: reponer eso deja el camión como empezó aquel turno. '
+		print '<div class="info">La columna <b>Salió en el turno anterior</b> es lo que se vendió, regaló o mermó en el <b>'.dol_escape_htmltag($ant['origen']).'</b> del '
+			.dol_print_date(dol_stringtotime($ant['fecha'].' 12:00:00'), '%d/%m/%Y').': reponer eso deja el camión como empezó aquel turno. '
 			.'<button type="button" class="button smallpaddingimp" onclick="document.querySelectorAll(\'input[data-salio]\').forEach(function (i) { i.value = i.dataset.salio; });">Reponer lo que salió</button></div>';
 	}
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
@@ -161,7 +178,7 @@ if (!$data) {
 	$sql = "SELECT m.inventorycode, MIN(m.datem) AS fecha, MIN(m.label) AS label, COUNT(DISTINCT m.fk_product) AS n, MIN(u.login) AS login"
 		." FROM ".MAIN_DB_PREFIX."stock_mouvement m LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = m.fk_user_author"
 		." WHERE m.fk_entrepot = ".((int) $whh)." AND m.value > 0"
-		." AND (m.inventorycode LIKE 'CARGA-%' OR m.inventorycode LIKE 'ENTRADA-%')"
+		." AND (m.inventorycode LIKE 'CARGA-%' OR m.inventorycode LIKE 'ENTRADA-%' OR m.inventorycode LIKE 'DEVOL-%')"
 		." GROUP BY m.inventorycode ORDER BY MAX(m.rowid) DESC LIMIT 10";
 	$resql = $db->query($sql);
 	if ($resql && $db->num_rows($resql)) {

@@ -22,6 +22,7 @@
  */
 
 require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_recetas.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/sabrooskipos/lib/sabrooskipos_turnos.lib.php';
 
 /**
  * @return array<string,string>
@@ -249,9 +250,11 @@ function sabrooskiposPinGuardar($db, $u, $pin, &$error)
  * @param int[]  $sabores   ids SM-* (servidos de mix)
  * @param string $motivo    a quién / por qué
  * @param array  $errors    (por referencia)
+ * @param array|null $turno turno (sesión de caja, v1.16): la baja queda ligada a él; si ya
+ *                          cerró, sus movimientos se fechan en su cierre
  * @return int   id de la baja (>0) o <0
  */
-function sabrooskiposBajaRegistrar($db, $user, $autoriza, $wh, $fecha, $tipo, $pid, $qty, $sabores, $motivo, &$errors)
+function sabrooskiposBajaRegistrar($db, $user, $autoriza, $wh, $fecha, $tipo, $pid, $qty, $sabores, $motivo, &$errors, $turno = null)
 {
 	global $conf;
 	$tipos = sabrooskiposBajaTipos();
@@ -313,13 +316,18 @@ function sabrooskiposBajaRegistrar($db, $user, $autoriza, $wh, $fecha, $tipo, $p
 			return -1;
 		}
 	}
-	sabrooskiposFecharMovimientos($db, $fecha, '21:00:00', "inventorycode = '".$db->escape($code)."'");
+	if ($turno && empty($turno['legacy'])) {
+		sabrooskiposSellarCierre($db, $turno, "inventorycode = '".$db->escape($code)."'");
+		$fecha = $turno['fecha'];
+	} else {
+		sabrooskiposFecharMovimientos($db, $fecha, '21:00:00', "inventorycode = '".$db->escape($code)."'");
+	}
 
 	$c = sabrooskiposCostoReceta($db, $pid);
-	$sql = "INSERT INTO ".MAIN_DB_PREFIX."sabrooskipos_baja (entity, datec, fecha, fk_entrepot, tipo, fk_product, qty, sabores, motivo, costo, inventorycode, fk_user_author, fk_user_autoriza, status)"
+	$sql = "INSERT INTO ".MAIN_DB_PREFIX."sabrooskipos_baja (entity, datec, fecha, fk_entrepot, tipo, fk_product, qty, sabores, motivo, costo, inventorycode, fk_user_author, fk_user_autoriza, status, fk_cashsession)"
 		." VALUES (".((int) $conf->entity).", '".$db->idate(dol_now())."', '".$db->escape($fecha)."', ".((int) $wh).", '".$db->escape($tipo)."', ".((int) $pid).", ".$qty
 		.", '".$db->escape(implode(',', $sabores))."', '".$db->escape(dol_trunc($motivo, 250, 'right', 'UTF-8', 1))."', ".((float) price2num($c['costo'] * $qty, 'MU'))
-		.", '".$db->escape($code)."', ".((int) $user->id).", ".((int) $autoriza->id).", 1)";
+		.", '".$db->escape($code)."', ".((int) $user->id).", ".((int) $autoriza->id).", 1, ".($turno && !empty($turno['id']) ? (int) $turno['id'] : 'NULL').")";
 	if (!$db->query($sql)) {
 		$errors[] = $db->lasterror();
 		return -1;
@@ -360,7 +368,13 @@ function sabrooskiposBajaAnular($db, $user, $autoriza, $id, &$errors)
 			return -1;
 		}
 	}
-	sabrooskiposFecharMovimientos($db, $b['fecha'], '21:30:00', "inventorycode = '".$db->escape($code)."'");
+	// La anulación queda en la misma ventana que la baja (v1.16: su turno; antes, su día).
+	$tb = (!empty($b['fk_cashsession']) ? sabrooskiposTurnoLeer($db, $b['fk_cashsession']) : null);
+	if ($tb) {
+		sabrooskiposSellarCierre($db, $tb, "inventorycode = '".$db->escape($code)."'");
+	} else {
+		sabrooskiposFecharMovimientos($db, $b['fecha'], '21:30:00', "inventorycode = '".$db->escape($code)."'");
+	}
 	$ok = $db->query("UPDATE ".MAIN_DB_PREFIX."sabrooskipos_baja SET status = 9, date_anula = '".$db->idate(dol_now())."', fk_user_anula = ".((int) $user->id)
 		.", fk_user_autoriza_anula = ".((int) $autoriza->id)." WHERE rowid = ".((int) $id));
 	if (!$ok) {
@@ -384,6 +398,20 @@ function sabrooskiposBajaLeer($db, $id)
 }
 
 /**
+ * Bajas de un móvil en uno o varios turnos (sesiones de caja, v1.16).
+ *
+ * @param DoliDB $db
+ * @param int    $wh
+ * @param int[]  $sesiones
+ * @param bool   $soloActivas
+ * @return array<int,array>
+ */
+function sabrooskiposBajasTurno($db, $wh, $sesiones, $soloActivas = true)
+{
+	return sabrooskiposBajasDia($db, $wh, '', $soloActivas, 0, (array) $sesiones);
+}
+
+/**
  * Bajas de un móvil en un día (o una por id).
  *
  * @param DoliDB $db
@@ -393,7 +421,7 @@ function sabrooskiposBajaLeer($db, $id)
  * @param int    $id
  * @return array<int,array>
  */
-function sabrooskiposBajasDia($db, $wh, $fecha, $soloActivas = true, $id = 0)
+function sabrooskiposBajasDia($db, $wh, $fecha, $soloActivas = true, $id = 0, $sesiones = null)
 {
 	global $conf;
 	$pre = MAIN_DB_PREFIX;
@@ -404,6 +432,9 @@ function sabrooskiposBajasDia($db, $wh, $fecha, $soloActivas = true, $id = 0)
 		." WHERE b.entity = ".((int) $conf->entity);
 	if ($id > 0) {
 		$sql .= " AND b.rowid = ".((int) $id);
+	} elseif (is_array($sesiones)) {
+		$sql .= " AND b.fk_entrepot = ".((int) $wh)." AND b.fk_cashsession IN (".($sesiones ? implode(',', array_map('intval', $sesiones)) : '0').")"
+			.($soloActivas ? " AND b.status = 1" : "");
 	} else {
 		$sql .= " AND b.fk_entrepot = ".((int) $wh)." AND b.fecha = '".$db->escape($fecha)."'".($soloActivas ? " AND b.status = 1" : "");
 	}
@@ -428,6 +459,7 @@ function sabrooskiposBajasDia($db, $wh, $fecha, $soloActivas = true, $id = 0)
 			'tipo' => (string) $o->tipo, 'fk_product' => (int) $o->fk_product, 'ref' => (string) $o->ref, 'label' => (string) $o->label,
 			'qty' => (float) $o->qty, 'sabores' => (string) $o->sabores, 'sabores_txt' => implode(', ', $nombres), 'motivo' => (string) $o->motivo,
 			'costo' => (float) $o->costo, 'inventorycode' => (string) $o->inventorycode, 'status' => (int) $o->status,
+			'fk_cashsession' => (int) (isset($o->fk_cashsession) ? $o->fk_cashsession : 0),
 			'autoriza' => (string) $o->autoriza, 'registra' => (string) $o->registra, 'anula' => (string) $o->anula, 'autoriza_anula' => (string) $o->autoriza_anula);
 	}
 	return $out;

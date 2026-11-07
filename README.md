@@ -19,6 +19,9 @@ lo hace **portable** y **a prueba de actualizaciones** de Dolibarr.
   - `TakePOS` → `run` (ya lo requiere el POS).
   - `Sabrooski POS` → `use` (se crea al activar el módulo).
 - Productos y categorías cargados en Dolibarr (ver "Configuración del entorno").
+- Opcional pero recomendado: módulo **POSPlus** (sesiones de caja). Desde la v1.16 cada
+  sesión de caja es un turno del camión (AM, PM): reportes, conteo, regalías, Cambio de turno
+  y devolución a Principal van por turno. Sin POSPlus todo funciona por día completo.
 
 ---
 

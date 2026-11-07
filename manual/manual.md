@@ -11,7 +11,9 @@ El manual tiene dos partes:
 | 1. Operación diaria | Cajeros y encargados del camión | Carga, toma de orden, cobro, regalías y dañadas, cierre |
 | 2. Administración | Administrador del sistema | Instalación, configuración, permisos, catálogo y recetas, migración, reportes |
 
-**El turno en una línea:** Entrada a Principal → Carga del camión → Ventas con Toma de orden → Regalías y dañadas → Cierre (conteo) → Reportes.
+**El día en una línea:** Entrada a Principal → Existencia inicial al camión → abrir caja del turno AM → ventas → cierre X → **Cambio de turno** (conteo y reponer) → abrir caja del turno PM → ventas → cierre Z → conteo final y **devolver todo a Principal** → reportes.
+
+Hay **un solo camión** (un terminal del TakePOS y un almacén). Los turnos del día (AM y PM) son las **sesiones de caja de POSPlus**: un turno va desde que se abre la caja hasta su cierre X (o Z en la noche). Solo cambia el operador; el inventario sigue en el mismo camión.
 
 Todo lo del módulo, salvo el botón del POS, está en el menú superior **SabrooskiVentas**.
 
@@ -19,15 +21,17 @@ Todo lo del módulo, salvo el botón del POS, está en el menú superior **Sabro
 
 Antes de vender, el camión debe tener insumos cargados: Dolibarr no permite existencias negativas, así que sin carga el sistema no deja cobrar.
 
+**En la mañana:** registra la producción en **Entrada a Principal**, carga el camión con **Existencia inicial** y después abre la caja del turno AM en el TakePOS.
+
 ### Cargar el camión
 
 Menú **SabrooskiVentas → Carga del camión** (permiso "Registrar carga y cierre").
 
 1. Elige el tipo de movimiento:
     - **Existencia inicial (Principal → móvil):** lo que el camión tiene al empezar.
-    - **Reposición / carga (Principal → móvil):** lo que se le sube durante el turno, o lo que falta después de un traspaso de turno (columna *Salió en el turno anterior*).
+    - **Reposición / carga (Principal → móvil):** lo que se le sube durante el turno. Entre turnos (con la caja cerrada) aparece la columna *Salió en el turno anterior*; lo normal es reponer desde **Cambio de turno**.
     - **Entrada a Principal (compras o conteo):** mercancía que llega al almacén principal.
-2. Elige el móvil (por ejemplo, Movil01PM) y la fecha del turno.
+2. Elige el móvil. La carga se registra a la hora actual: cuenta para el turno con la caja abierta o, si la caja está cerrada, para el turno que se abra después.
 3. Escribe las cantidades en la columna de la derecha. La tabla muestra lo que hay en Principal para no cargar más de lo que existe.
 4. Pulsa **Registrar carga** (o **Registrar entrada**). Abajo aparece la carga en **Últimas cargas**.
 
@@ -70,15 +74,103 @@ Al validar el ticket, el inventario del móvil baja solo: los insumos fijos de l
 
 Las ventas a crédito o delivery se registran con pago diferido del TakePOS.
 
-## Parte 1 — Cierre de turno
+## Parte 1 — Un día en el camión, paso a paso
 
-Al terminar el turno, el encargado hace tres cosas en este orden: registra regalías y dañadas, cuenta lo que queda en el camión y cierra la caja.
+Hay un solo camión y dos turnos al día: **AM** (mañana) y **PM** (tarde). Cada turno empieza cuando se **abre la caja** en el TakePOS (POSPlus → Apertura de caja) y termina con su **cierre de caja**: el **Reporte X** al mediodía y el **Reporte Z** en la noche. Lo que se vende, regala o falta en el conteo queda a cargo del turno en que pasó. Solo cambian los operadores; el inventario no se mueve a otro camión.
 
-### 1. Regalías y dañadas
+Resumen del día:
 
-Menú **SabrooskiVentas → Regalías y dañadas**. Cada registro necesita el PIN de un autorizador.
+| Momento | Quién | Dónde | Qué se hace |
+| --- | --- | --- | --- |
+| Mañana, antes de vender | Encargado | Carga del camión | Producción a **Entrada a Principal**; luego **Existencia inicial** al camión |
+| Inicio del AM | Operador AM | TakePOS | **Abrir caja** (POSPlus) |
+| Durante el AM | Operador AM | TakePOS | Vender con **Toma de orden**; registrar regalías y dañadas |
+| Mediodía | Operador AM y encargado | TakePOS y Cambio de turno | **Cierre X** → **contar** el camión → ver diferencias → **reponer** lo que salió |
+| Inicio del PM | Operador PM | TakePOS | **Abrir caja** |
+| Durante el PM | Operador PM | TakePOS | Vender; registrar regalías y dañadas |
+| Noche | Operador PM y encargado | TakePOS y Cambio de turno | **Cierre Z** → **conteo final** → **devolver todo a Principal** |
 
-1. Elige el móvil y la fecha del turno.
+### Paso 1 — En la mañana: cargar Principal y el camión
+
+1. Menú **SabrooskiVentas → Carga del camión**, tipo **Entrada a Principal (compras o conteo)**. Escribe lo producido: mix por sabor en **gramos** (16,250 kg = `16250`), congelados, conos, vasos, complementos. Pulsa **Registrar entrada**.
+2. Cambia el tipo a **Existencia inicial (Principal → móvil)**, elige el camión y escribe lo que se sube. No se puede cargar más de lo que hay en Principal (columna *En Principal*). Pulsa **Registrar carga**.
+3. Revisa que la carga aparezca abajo, en **Últimas cargas**.
+
+Carga el camión **antes** de abrir la caja: así la existencia inicial cuenta para el turno AM.
+
+### Paso 2 — Abrir el turno AM y vender
+
+1. En el TakePOS, abre la caja con **POSPlus → Apertura de caja** (fondo de cada caja).
+2. Vende con el botón **Toma de orden** (ver *Tomar una orden* y *Cobrar e imprimir*). Cada venta descuenta del camión su receta: vaso o cono, mix de los sabores elegidos, topping y sirope.
+3. Si se regala o se daña algo, regístralo en **SabrooskiVentas → Regalías y dañadas** con el PIN del autorizador (ver más abajo).
+
+### Paso 3 — Mediodía: cambio de turno
+
+Menú **SabrooskiVentas → Cambio de turno**. La pantalla muestra los pasos y en cuál vas:
+
+1. **Cerrar caja (X).** En el TakePOS, cierra la caja del AM con el **Reporte X** de POSPlus. Con la caja abierta, Cambio de turno no deja contar: así ya no entran ventas mientras se cuenta. Luego pulsa **Ya cerré la caja: continuar**.
+2. **Contar el camión.** Pesa y cuenta todo lo que queda y escríbelo en **Conteo** (ver *Cómo contar*). Pulsa **Registrar conteo del Turno 1 (AM)**.
+3. **Diferencias.** La pantalla muestra, producto por producto, lo que faltó o sobró (contado − sistema). Esas diferencias son del turno AM. Si te equivocaste al contar, corrígelo en **Cierre (conteo)**: se ajusta a la nueva cifra.
+4. **Reponer.** En *Sigue otro turno: reponer desde Principal*, pulsa **Reponer lo que salió**: copia en *Reponer* lo que el AM vendió, regaló o mermó, sin pasar de lo que hay en Principal. Ajusta lo que haga falta y pulsa **Registrar reposición**. Así el PM empieza con el camión como empezó el AM.
+5. **Abrir el PM.** El operador PM abre su caja en el TakePOS (POSPlus → Apertura de caja). Desde ahí, todo es del turno PM.
+
+Ejemplo: el AM empezó con 100 vasos de Sundae, vendió 30 y regaló 2. El conteo da 68: sin diferencias. *Salió* = 32; se reponen 32 y el PM empieza con 100.
+
+Las regalías y el conteo que se registran **después del cierre X y antes de abrir el PM** cuentan para el AM. La reposición cuenta para el PM.
+
+### Paso 4 — Turno PM
+
+Igual que el AM: vender con **Toma de orden** y registrar las regalías y dañadas.
+
+### Paso 5 — Noche: cierre del día
+
+Menú **SabrooskiVentas → Cambio de turno**:
+
+1. **Cerrar caja (Z).** En el TakePOS, cierra el día con el **Reporte Z** de POSPlus.
+2. **Conteo final.** Cuenta todo lo que queda y regístralo, igual que al mediodía.
+3. **Diferencias** del turno PM.
+4. **Devolver todo a Principal.** En *Cierre del día*, pulsa **Devolver todo a Principal** y confirma. Todo lo que queda pasa a Principal y el camión queda en 0. En los reportes, lo devuelto cuenta como el cierre del PM (lo contado), no como faltante.
+5. Al día siguiente se empieza otra vez por el **Paso 1**.
+
+No repongas en la noche: después del cierre Z se devuelve todo.
+
+### Cómo contar
+
+1. Cuenta físicamente lo que queda y escríbelo en **Conteo**, en las mismas unidades que la carga: mix en **gramos**, sin punto ni coma (9,4 kg = `9400`). El topping y el sirope se **pesan todo junto** y se escriben en gramos en **Topping (granel)** y **Sirope (granel)**. Oreo y Pirulín se cuentan en unidades. La columna **Según sistema** sirve de referencia.
+2. Deja vacío lo que no contaste: no se toca.
+
+El sistema iguala la existencia al conteo. En Oreo y Pirulín la diferencia queda como "Consumo del turno (conteo)"; en lo demás (también topping y sirope, que ya bajaron al vender), como "Ajuste cierre (conteo)": es la merma, y se ve en el reporte de insumos.
+
+**Si el conteo no cuadra con el sistema (ejemplo con el mix).** *Según sistema* dice **15250 g** de Mix de chocolate, pero al pesar hay **14950 g**:
+
+1. Escribe en *Conteo* lo que pesaste: `14950`. No escribas lo que dice el sistema.
+2. Al registrar, el sistema saca **300 g** del camión como "Ajuste cierre (conteo)" y la existencia queda en 14950 g. El faltante queda en el turno que cerró: el siguiente empieza con lo que de verdad hay.
+3. En **ReportesVentas → Insumos del móvil** (con ese turno elegido), esos 300 g salen en **Diferencia** (consumo real menos consumo teórico de las ventas). Las ventas no cuentan como diferencia: cada venta ya descontó su receta al cobrarse.
+
+Esos 300 g son la **merma del turno**. Las causas más comunes son:
+
+- Porciones servidas más grandes que la receta (la más frecuente).
+- Mix perdido o botado: limpieza o purga de la máquina, derrames, lo que queda en la tolva.
+- Ventas que se sirvieron y no se marcaron en la caja.
+- Regalías o dañadas sin registrar. Si se registran antes del conteo, salen en su columna y no cuentan como diferencia.
+- Error al pesar.
+
+Buenas prácticas:
+
+- Pesa siempre en la misma balanza y sin el envase.
+- Registra las regalías y dañadas **antes** del conteo.
+- Una merma pequeña es normal en máquina. Si la diferencia pasa del margen que fije la administración (por ejemplo, 2–3 % de lo vendido), revísala con el encargado del turno.
+- Mira la tendencia: si un turno tiene siempre diferencias altas, revisa el tamaño de las porciones o las ventas sin registrar.
+
+Si el conteo es **mayor** que el sistema, el ajuste es una entrada y la diferencia sale negativa. Casi siempre es un error de pesaje o una carga sin registrar.
+
+**Cierre (conteo)** (menú aparte) sirve para corregir un conteo o contar sin pasar por Cambio de turno. Elige el turno en el selector; si la caja de ese turno ya cerró, los ajustes se fechan en su cierre. Contar un turno anterior al actual solo lo puede hacer un administrador, porque el conteo se compara con la existencia de ahora.
+
+### Regalías y dañadas
+
+Menú **SabrooskiVentas → Regalías y dañadas**. Cada registro necesita el PIN de un autorizador. Se registran en el turno con la caja abierta; si la caja ya cerró (antes del conteo), en el turno que cerró.
+
+1. Elige el móvil (y el turno, si corriges uno anterior).
 2. Llena el formulario:
     - **Tipo:** Regalía o Dañada.
     - **Producto:** de venta o insumo.
@@ -94,55 +186,15 @@ Un servido regalado o caído baja su receta completa (vaso o cono, cucharilla, m
 
 **Mi PIN de autorización** (solo autorizadores): cada uno fija aquí su PIN de 4 a 8 dígitos. Dos autorizadores no pueden tener el mismo. Para cambiarlo se pide el PIN actual.
 
-### 2. Cierre (conteo)
+### Cierre de caja
 
-Menú **SabrooskiVentas → Cierre (conteo)**.
-
-1. Elige el móvil y la fecha del turno.
-2. Cuenta físicamente lo que queda y escríbelo en **Conteo**, en las mismas unidades que la carga (mix en **gramos**, sin punto ni coma: 9,4 kg = `9400`). El topping y el sirope se **pesan todo junto** y se escriben en gramos en **Topping (granel)** y **Sirope (granel)**. Oreo y Pirulín se cuentan en unidades. La columna **Según sistema** sirve de referencia.
-3. Deja vacío lo que no contaste: no se toca.
-4. Pulsa **Registrar cierre**, o **Registrar cierre y traspasar a …** para pasar el inventario al otro camión (ver abajo).
-
-El sistema iguala la existencia al conteo. En Oreo y Pirulín la diferencia queda como "Consumo del turno (conteo)"; en lo demás (también topping y sirope, que ya bajaron al vender), como "Ajuste cierre (conteo)": es la merma, y se ve en el reporte de insumos.
-
-**Si el conteo no cuadra con el sistema (ejemplo con el mix).** *Según sistema* dice **15250 g** de Mix de chocolate, pero al pesar hay **14950 g**:
-
-1. Escribe en *Conteo* lo que pesaste: `14950`. No escribas lo que dice el sistema.
-2. Al registrar, el sistema saca **300 g** del camión como "Ajuste cierre (conteo)" y la existencia queda en 14950 g. Si traspasas, el turno siguiente recibe 14950 g: el faltante no pasa al otro turno.
-3. En **ReportesVentas → Insumos del móvil**, esos 300 g salen en **Diferencia** (consumo real menos consumo teórico de las ventas). Las ventas no cuentan como diferencia: cada venta ya descontó su receta al cobrarse.
-
-Esos 300 g son la **merma del turno**. Las causas más comunes son:
-
-- Porciones servidas más grandes que la receta (la más frecuente).
-- Mix perdido o botado: limpieza o purga de la máquina, derrames, lo que queda en la tolva.
-- Ventas que se sirvieron y no se marcaron en la caja.
-- Regalías o dañadas sin registrar. Si se registran antes del cierre, salen en su columna y no cuentan como diferencia.
-- Error al pesar.
-
-Buenas prácticas:
-
-- Pesa siempre en la misma balanza y sin el envase.
-- Registra las regalías y dañadas **antes** del cierre.
-- Una merma pequeña es normal en máquina. Si la diferencia pasa del margen que fije la administración (por ejemplo, 2–3 % de lo vendido), revísala con el encargado del turno.
-- Mira la tendencia: si un camión o un turno tiene siempre diferencias altas, revisa el tamaño de las porciones o las ventas sin registrar.
-
-Si el conteo es **mayor** que el sistema, el ajuste es una entrada y la diferencia sale negativa. Casi siempre es un error de pesaje o una carga sin registrar.
-
-**Traspaso de turno.** Lo que no se vendió pasa al camión del turno siguiente, y Principal solo repone lo que falta:
-
-1. Al cerrar el **AM**, pulsa **Registrar cierre y traspasar a Movil01PM**. Todo lo que queda en el camión (lo contado y, lo que no se contó, según el sistema) pasa al PM como **existencia inicial** de ese mismo día. El AM queda en 0.
-2. En **Carga del camión → Reposición**, con el móvil PM, aparece la columna **Salió en el turno anterior**: lo que el AM vendió, regaló o mermó. El botón **Reponer lo que salió** la copia en *Cantidad*; ajusta lo que haga falta y pulsa **Registrar carga**. Ejemplo: el AM empezó con 100 vasos de Sundae y vendió 30; el PM recibe 70 y se reponen 30.
-3. Al cerrar el **PM**, el mismo botón traspasa al **Movil01AM del día siguiente**.
-
-Registra antes las regalías y dañadas y cierra las ventas del turno: después del traspaso el camión que cierra queda vacío. En los reportes, lo traspasado cuenta como existencia al cierre del que entrega y como existencia del que recibe, no como faltante ni como carga.
-
-### 3. Cierre de caja
-
-Se hace en el TakePOS como siempre (cierre de caja nativo, con los montos en $ y Bs). El módulo no lo cambia.
+Se hace en el TakePOS con **POSPlus**: **Reporte X** al terminar cada turno (cuenta el dinero de ese turno) y **Reporte Z** al final del día (cierra el día de caja). Después del Z no se puede abrir otra caja ese día. El cierre de caja es lo que marca el fin de cada turno para el inventario y los reportes.
 
 ## Parte 2 — Administración
 
-El módulo se instala como cualquier módulo externo de Dolibarr y se configura en **Inicio → Configuración → Módulos → Sabrooski POS**. Requiere Dolibarr con TakePOS activo.
+El módulo se instala como cualquier módulo externo de Dolibarr y se configura en **Inicio → Configuración → Módulos → Sabrooski POS**. Requiere Dolibarr con TakePOS activo. Los turnos usan las sesiones de caja de **POSPlus**; sin POSPlus, conteos y reportes funcionan por día completo.
+
+**Turnos por sesión de caja (desde la v1.16).** Desde la fecha de la constante `SABROOSKIPOS_TURNOS_DESDE` (se fija sola al reactivar el módulo), reportes, conteos y regalías van por turno. Los días anteriores se siguen viendo como antes (día completo por terminal). Para pasar de dos camiones (Movil01AM y Movil01PM) a uno solo: cerrar la caja del Terminal 2, devolver a Principal lo que tenga Movil01PM, poner el número de terminales del TakePOS en 1 y cerrar (sin borrar) el almacén Movil01PM.
 
 ### Instalar o actualizar
 
@@ -161,7 +213,7 @@ El módulo se instala como cualquier módulo externo de Dolibarr y se configura 
 
 **Topping y sirope a granel** (al pie de Ajustes): el botón **Pasar a granel** crea **Topping (granel)** (`INS-TOPG`) y **Sirope (granel)** (`INS-SIRG`), suma en cada almacén lo que había de las variedades (Dandy, Maní, Sirope de chocolate…) y lo pasa al granel; las variedades quedan fuera de uso. Se hace una vez por base de datos; repetirlo no duplica nada.
 
-Los almacenes de cada terminal (por ejemplo, Terminal 2 → Movil01PM) y las formas de pago se fijan en la configuración del TakePOS, no aquí.
+El almacén de cada terminal (un terminal por camión, por ejemplo Terminal 1 → Movil01AM) y las formas de pago se fijan en la configuración del TakePOS, no aquí.
 
 ### Permisos
 
@@ -171,7 +223,7 @@ Se asignan en **Usuarios y grupos → usuario → Permisos → Sabrooski POS**.
 | --- | --- | --- |
 | Usar Sabrooski POS | Cajeros | El botón Toma de orden |
 | Ver ReportesVentas (planillas del turno) | Encargados, administración | Menú SabrooskiVentas y reportes (activo por defecto) |
-| Registrar carga y cierre (conteo) del camión | Encargados | Carga del camión, Cierre (conteo), Regalías y dañadas |
+| Registrar carga y cierre (conteo) del camión | Encargados | Carga del camión, Cambio de turno, Cierre (conteo), Regalías y dañadas |
 | Autorizar regalías y dañadas (PIN) | Supervisor o dueño | Mi PIN de autorización; su PIN vale para autorizar |
 
 Después de dar el permiso de autorizar, cada autorizador debe entrar a **Mi PIN de autorización** y fijar su PIN.
@@ -270,7 +322,9 @@ No hace falta **Pasar a granel**: el catálogo de local ya trae Topping (granel)
 
 ## Parte 2 — Reportes
 
-Los seis reportes están en el menú izquierdo de **SabrooskiVentas**. Se filtran por fecha y terminal, y cada uno se descarga en Excel (.xlsx); también se pueden bajar las cuatro planillas del turno juntas.
+Los seis reportes están en el menú izquierdo de **SabrooskiVentas**. Se filtran por **fecha**, **terminal** y **turno** (Turno 1 (AM), Turno 2 (PM) o **Día completo**), y cada uno se descarga en Excel (.xlsx); también se pueden bajar las cuatro planillas del turno juntas. El selector *Turnos recientes* salta directo a uno.
+
+Un turno abarca desde el cierre de caja del turno anterior hasta su propio cierre X o Z: incluye la carga de la mañana (en el AM), las ventas, las regalías y el conteo hecho con la caja ya cerrada. Un ticket cuenta en el turno en que se cobró. Si la caja del turno sigue abierta, el reporte avisa que los datos son parciales; si no tiene conteo de cierre, avisa que el cierre es lo que dice el sistema.
 
 | Reporte | Qué muestra | Para qué sirve |
 | --- | --- | --- |
@@ -278,7 +332,7 @@ Los seis reportes están en el menú izquierdo de **SabrooskiVentas**. Se filtra
 | Pago móvil y puntos | Pagos móviles y transacciones de punto por lote, crédito y débito | Cuadrar contra el banco y los cierres de lote |
 | Especificaciones de ventas | Ventas del turno, resumen de cierre, ventas a crédito y observaciones (descuentos, regalías, dañadas) | La planilla principal del turno |
 | Inventario de ventas | Por producto: existencia, reposición, vendido, regalías, crédito, dañadas, lo gastado por receta y cierre | Ver qué se movió y dónde hay diferencias |
-| Insumos del móvil | Por insumo: existencia anterior, **carga inicial** (existencia inicial o traspaso de turno), reposición, consumo real (todo eso − regalías/dañadas − cierre) frente al teórico de las ventas | Detectar faltantes o porciones mal servidas |
+| Insumos del móvil | Por insumo: existencia anterior (en el PM, lo que dejó el AM después de su conteo), **carga inicial** (existencia inicial de la mañana), reposición, consumo real (todo eso − regalías/dañadas − cierre) frente al teórico de las ventas | Detectar faltantes o porciones mal servidas |
 | Costos y margen | Ventas del turno, costo por receta, margen y regalías/dañadas con su costo | Ver la ganancia real del turno |
 
 **Cómo leer Insumos del móvil:** si el consumo real es mayor que el teórico, salió más insumo del que justifican las ventas: porciones grandes, regalías sin registrar o faltante. En topping y sirope a granel, el consumo real (existencia + carga − peso del cierre) se compara con los gramos que llevan los productos vendidos más los adicionales: la diferencia es la merma (o lo que se sirvió de más). Oreo y Pirulín se comparan en total del turno.
@@ -301,7 +355,12 @@ Los seis reportes están en el menú izquierdo de **SabrooskiVentas**. Se filtra
 | El sabor no sale en el ticket de la pantalla | El módulo no se reactivó después de instalar la 1.12 | Reactivar el módulo (activa la opción del TakePOS que muestra el detalle bajo cada producto) |
 | El sabor no sale en el ticket de la impresora térmica | La plantilla del recibo imprime solo el nombre del producto | En la plantilla del recibo, cambiar `{dol_print_object_lines}` por `{dol_print_object_lines_with_notes}` |
 | Me equivoqué en una regalía | — | Anularla con PIN y registrarla de nuevo |
+| Cambio de turno no deja contar | La caja del turno sigue abierta | Cerrarla con el Reporte X (o Z) de POSPlus y pulsar *Ya cerré la caja: continuar* |
+| Conté antes de cerrar la caja | El conteo quedó a la hora en que se hizo, dentro del turno | Si luego hubo ventas, volver a contar después del cierre X en Cambio de turno |
+| La existencia inicial salió en el turno de ayer | La caja de ayer quedó abierta | Cerrar esa caja en POSPlus antes de cargar; Carga del camión avisa cuando pasa |
+| El reporte del turno no muestra un ticket | El ticket se cobró en otro turno | Verlo en el turno en que se cobró, o en *Día completo* |
+| Quedó mercancía en el camión después de devolver | Se movió algo después de la devolución | Contarla en Cierre (conteo) o devolverla con un traslado |
 
-**¿Se puede corregir un cierre?** Sí: vuelve a registrar el conteo del mismo móvil y fecha; el sistema ajusta a la nueva cifra.
+**¿Se puede corregir un cierre?** Sí: en **Cierre (conteo)** elige el turno y vuelve a registrar el conteo; el sistema ajusta a la nueva cifra. Hazlo antes de que avance el turno siguiente, porque el conteo se compara con la existencia de ahora.
 
 **¿Quién ve el PIN?** El PIN no se muestra en pantalla, pero se teclea en el equipo del encargado.

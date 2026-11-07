@@ -803,3 +803,49 @@ guardaron 16.250 kg; se hizo reset. Decisión del usuario: el mix se escribe en 
   `ciclo_turno` y `bajas` ajustadas a gramos. Pasan: ciclo_turno, traspaso, bajas, sabores_mix,
   servidos_inventario, recetas, reportes, granel, individual_venta.
 - Para revertir: reinstalar el zip 1.14 (no hay cambios de datos).
+
+## 24. v1.16: un camión, turnos por sesión de caja POSPlus (2026-11-07)
+
+Motivo: prueba en producción. El modelo "un turno = un terminal = un almacén = un día"
+(Movil01AM / Movil01PM con traspaso) no es el real: hay UN camión y solo cambian los
+operadores (usuario de Dolibarr compartido). Proceso confirmado por el usuario: mañana,
+producción → Principal → Existencia inicial al camión → abrir caja AM; mediodía: cierre X →
+conteo completo (diferencias a cargo del AM) → reponer lo vendido → abrir caja PM; noche:
+X/Z → conteo final → todo vuelve a Principal (camión en 0). Decisiones: turno = sesión de
+caja POSPlus (1.ª del día AM, 2.ª PM); pantalla guiada "Cambio de turno"; diferencias solo
+en cantidades; reposición sugiere "lo que salió"; botón "Devolver todo a Principal";
+Movil01PM se retira (el diseño sirve para más camiones, uno por terminal).
+
+- `lib/sabrooskipos_turnos.lib.php` (nueva): `sabrooskiposTurnos()`, `TurnoLeer`, `TurnoVentana`,
+  `TurnoActual`, `TurnosRecientes`, `TurnoMarca/Marcar`, `SellarCierre`, `SalioEnTurno`,
+  `TerminalDeAlmacen`, `PosplusActivo`, `ModoTurnos`. Ventana (t0, t1]: t0 = date_start de
+  POSPlus (cierre de la sesión anterior del terminal; primera sesión: inicio del día), t1 =
+  date_close o ahora. Regla del hueco: conteo, devolución y bajas con la caja ya cerrada son
+  del turno que cerró y se fechan en su date_close; carga y reposición quedan a la hora real
+  (turno siguiente). Legacy (día completo, reglas de antes): sin POSPlus, día sin sesiones o
+  fecha < `SABROOSKIPOS_TURNOS_DESDE` (se fija al reactivar; local = 2026-11-07).
+- Tabla nueva `llx_sabrooskipos_turno` (marca de conteo y devolución por sesión y almacén: un
+  conteo sin diferencias no deja movimientos). `llx_sabrooskipos_baja.fk_cashsession`
+  (`sql/update_1.16.sql`). Códigos `CIERRE-S<id>-…`, `DEVOL-S<id>-…`.
+- Reportes: `sabrooskiposReporteDatos(..., $turno)`. Tickets por la hora de validación = su
+  primera salida de stock (`date_valid` es DATE, sin hora; `datec` es la apertura del borrador;
+  `date_closing` cambia si un crédito se cobra otro día), con fallback date_closing / datec.
+  Columna `devol` ("Devolución a Principal%") suma al cierre como el traspaso de antes. Filtro
+  turno / día completo en `reportes/index.php`; avisos de turno abierto y sin conteo.
+- `carga/turno.php` (Cambio de turno): 1 cerrar caja X (bloquea el conteo con caja abierta) →
+  2 conteo → 3 diferencias + reponer lo que salió (o devolver todo, en la noche / tras Z) → 4
+  abrir turno siguiente. Cierre (conteo) y Regalías: selector de turno; contar un turno que no
+  es el actual solo admin. Carga: a la hora real, sin fecha; aviso de caja abierta de otro día.
+- Eliminados `sabrooskiposTurnoSiguiente`, `sabrooskiposTraspasoTurno`,
+  `sabrooskiposSalidasTurnoAnterior` y el botón "Registrar cierre y traspasar". El reporte sigue
+  leyendo "Traspaso de turno%" para días legacy.
+- Pruebas: `test/cambio_turno_cli.php` (nueva, día simulado de ayer: ventanas, regalía en el
+  hueco, conteo AM −10 g, salió 354 g, reposición, ticket abierto en AM y cobrado en PM, conteo
+  PM sin diferencias, devolución y no repetir, día completo, legacy, primera sesión, sesión
+  abierta). `traspaso_cli.php` retirada. Pasan: cambio_turno, ciclo_turno, bajas, sabores_mix,
+  servidos_inventario, recetas, reportes, granel, individual_venta, mix_gramos.
+- Manual: "Un día en el camión, paso a paso" (tabla del día, pasos 1–5, cómo contar,
+  regalías, cierre de caja X/Z), reportes por turno, preguntas frecuentes nuevas.
+- Migración en producción: respaldo → cerrar sesión del Terminal 2 → devolver Movil01PM a
+  Principal → TAKEPOS_NUM_TERMINALS = 1 → cerrar almacén Movil01PM → zip 1.16 → reactivar.
+- Pendiente: `sabrooskiposExportTurnos` (paquete de migración) sigue agrupando por día.

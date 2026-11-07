@@ -27,13 +27,17 @@ $wh = GETPOSTINT('wh');
 if (!isset($moviles[$wh])) {
 	$wh = (int) key($moviles);
 }
+// v1.16: por turnos (POSPlus) la baja es del turno abierto o, en el hueco, del que cerró.
+$turno = sabrooskiposTurnoElegido($db, $wh);
 $fecha = GETPOST('fecha', 'alphanohtml');
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+if ($turno) {
+	$fecha = $turno['fecha'];
+} elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 	$fecha = dol_print_date(dol_now(), '%Y-%m-%d');
 }
 $tipos = sabrooskiposBajaTipos();
 $action = GETPOST('action', 'aZ09');
-$self = $_SERVER['PHP_SELF'].'?wh='.$wh.'&fecha='.urlencode($fecha);
+$self = $_SERVER['PHP_SELF'].'?wh='.$wh.($turno ? '&sesion='.$turno['id'] : '&fecha='.urlencode($fecha));
 
 /**
  * Valida el PIN con bloqueo tras 5 intentos fallidos (10 minutos, por sesión).
@@ -67,7 +71,7 @@ if ($action == 'registrar' || $action == 'anular') {
 		$db->begin();
 		if ($action == 'registrar') {
 			$r = sabrooskiposBajaRegistrar($db, $user, $aut, $wh, $fecha, GETPOST('tipo', 'aZ09'), GETPOSTINT('fk_product'), price2num(GETPOST('qty', 'alphanohtml')),
-				GETPOST('sabores', 'array'), GETPOST('motivo', 'alphanohtml'), $errors);
+				GETPOST('sabores', 'array'), GETPOST('motivo', 'alphanohtml'), $errors, $turno);
 		} else {
 			$r = sabrooskiposBajaAnular($db, $user, $aut, GETPOSTINT('id'), $errors);
 		}
@@ -84,7 +88,7 @@ if ($action == 'registrar' || $action == 'anular') {
 
 $productos = sabrooskiposBajaProductos($db);
 $saboresMix = sabrooskiposBajaSaboresMix($db);
-$bajas = sabrooskiposBajasDia($db, $wh, $fecha, false);
+$bajas = ($turno ? sabrooskiposBajasTurno($db, $wh, array($turno['id']), false) : sabrooskiposBajasDia($db, $wh, $fecha, false));
 
 llxHeader(sabrooskiposCargaCss().'<style>.sbr-form td{padding:4px 8px}.sbr-sabores label{margin-right:12px;white-space:nowrap}.sbr-anulada td{text-decoration:line-through;opacity:.6}</style>',
 	'Regalías y dañadas', '', '', 0, 0, '', '', '', 'mod-sabrooskipos page-bajas');
@@ -96,8 +100,16 @@ foreach ($moviles as $id => $l) {
 	print '<option value="'.$id.'"'.($id == $wh ? ' selected' : '').'>'.dol_escape_htmltag($l).'</option>';
 }
 print '</select>';
-print 'Fecha del turno <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.submit()">';
+if ($turno) {
+	print sabrooskiposSelectTurno($db, $wh, $turno);
+} else {
+	print 'Fecha del turno <input type="date" name="fecha" value="'.dol_escape_htmltag($fecha).'" onchange="this.form.submit()">';
+}
 print '</form>';
+if ($turno) {
+	print '<div class="info">Se registran en el <b>'.dol_escape_htmltag($turno['corto']).'</b> del '.dol_escape_htmltag(dol_print_date(dol_stringtotime($turno['fecha'].' 12:00:00'), '%d/%m'))
+		.($turno['abierta'] ? ' (caja abierta).' : ' (caja ya cerrada: cuentan para ese turno, como su conteo).').'</div>';
+}
 
 print '<div class="opacitymedium marginbottom">Registra cada regalía o producto dañado del turno. Un servido baja su barquilla/vaso, mix de los sabores y '
 	.'demás insumos de la receta; una bandeja o golosina baja ella misma. El sirope y el topping se ven en el conteo de cierre. '

@@ -76,7 +76,7 @@ class modSabrooskiPOS extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@sabrooskipos'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.15';
+		$this->version = '1.16';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -364,7 +364,7 @@ class modSabrooskiPOS extends DolibarrModules
 		);
 		$permcarga = '$user->admin || $user->hasRight("sabrooskipos", "carga", "write")';
 		$permpin = '$user->admin || $user->hasRight("sabrooskipos", "bajas", "autorizar")';
-		foreach (array('carga' => 'Carga del camión', 'cierre' => 'Cierre (conteo)', 'bajas' => 'Regalías y dañadas', 'pin' => 'Mi PIN de autorización') as $code => $label) {
+		foreach (array('carga' => 'Carga del camión', 'turno' => 'Cambio de turno', 'cierre' => 'Cierre (conteo)', 'bajas' => 'Regalías y dañadas', 'pin' => 'Mi PIN de autorización') as $code => $label) {
 			$this->menu[$r++] = array(
 				'fk_menu' => 'fk_mainmenu=reportesventas',
 				'type' => 'left',
@@ -582,6 +582,12 @@ class modSabrooskiPOS extends DolibarrModules
 		// (no tiene casilla en el setup del TakePOS) el detalle queda solo en el tooltip.
 		if (!getDolGlobalInt('TAKEPOS_SHOW_N_FIRST_LINES')) {
 			dolibarr_set_const($this->db, 'TAKEPOS_SHOW_N_FIRST_LINES', '1', 'chaine', 0, '', $conf->entity);
+		}
+
+		// v1.16: turnos por sesión de caja de POSPlus. Desde esta fecha los reportes, el conteo y
+		// las bajas van por turno; los días anteriores siguen con las reglas de día completo.
+		if (getDolGlobalString('SABROOSKIPOS_TURNOS_DESDE') === '') {
+			dolibarr_set_const($this->db, 'SABROOSKIPOS_TURNOS_DESDE', dol_print_date(dol_now(), '%Y-%m-%d'), 'chaine', 0, '', $conf->entity);
 		}
 
 		// Permissions
