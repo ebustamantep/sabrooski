@@ -250,40 +250,93 @@ El costo de cada insumo está en el **precio de costo** del producto y alimenta 
 
 Un producto nuevo queda **fuera de venta hasta tener precio**.
 
-### Crear un producto con receta (kit)
+### Crear un servido en camión (ejemplo: Barquilla Plus)
 
-Un servido nuevo (por ejemplo, un vaso o un especial) se arma en dos pasos: la ficha del producto con sus datos de receta y, después, la pestaña **Kits** con sus insumos fijos. Todos los insumos deben existir antes.
+Un servido (barquilla, sundae, vaso…) no tiene existencia propia: al venderlo, el sistema descuenta sus insumos. Se arma en dos partes, y cada parte descuenta cosas distintas:
 
-**Paso 1 — Ficha del producto.** Menú **Productos → Nuevo producto**:
-
-1. **Ref.** con la numeración de venta (por ejemplo `PV-033`) y **Etiqueta** con el nombre que verá el cajero.
-2. **En venta:** Sí. **En compra:** No.
-3. **Precio de venta** con IVA incluido y **Tasa IVA** 16%.
-4. En los campos del módulo, más abajo en la misma ficha (ver tabla).
-5. Pulsa **Crear**. En la ficha, pestaña **Categorías**, asígnale la pestaña del popup donde debe salir (Servido en camión, Especial domo…).
-
-| Campo | Qué poner | Ejemplo |
+| Qué descuenta | Dónde se configura | Ejemplo en Barquilla Plus |
 | --- | --- | --- |
-| Máx. sabores | Sabores que puede elegir el cliente | 2 |
-| Grupo de sabores | Mix (servidos) | Mix (servidos) |
-| Gramos por porción | Gramos de mix por unidad; se reparten entre los sabores elegidos | 82 |
-| Gramos de sirope (receta) | Gramos de sirope que lleva; 0 si no lleva | 10 |
-| Gramos de topping (receta) | Gramos de topping que lleva; 0 si no lleva | 15 |
-| Pirulín/Oreo (receta, uds) | Unidades de Pirulín u Oreo; 0 si no lleva | 0 |
-| Unidad de control | Vacío (solo para insumos) | — |
+| **Insumos que se cuentan por unidad** (cono, portacono, vaso, cucharilla, servilleta, domo) | Pestaña **Kits** del producto | 1 cono barquilla, 1 portacono, 1 servilleta |
+| **Mix** (helado), repartido entre los sabores que elige el cliente | Campo **Gramos por porción** de la ficha | 180 g |
+| **Sirope y topping a granel** | Campos **Gramos de sirope (receta)** y **Gramos de topping (receta)** | 10 g de sirope en el cono, 10 g de topping |
+| **Pirulín u Oreo** | Campo **Pirulín/Oreo (receta, uds)** | 0 |
 
-**Paso 2 — Pestaña Kits.** En la ficha del producto, abre **Kits**:
+Antes de empezar, mira cómo está hecha la **Barquilla** normal (`PV-002`) y úsala de modelo: 90 g de mix, 4 g de sirope, 10 g de topping, y en el kit 1 cono barquilla (`INS-012`), 1 portacono (`INS-013`) y 1 servilleta (`INS-031`). La Barquilla Plus del ejemplo lleva **el doble de mix (180 g)** y **10 g de sirope dentro del cono**. Los gramos de sirope y topping del ejemplo son ilustrativos: usa los de tu receta (pésala una vez).
 
-1. Busca cada insumo fijo (vaso o cono, cucharilla, servilleta, domo…) y escribe la **Cant.** por unidad vendida.
-2. Marca **Incrementar/Decrementar stock al cambiar su padre** en cada insumo. Sin esa marca, el insumo no baja al vender.
-3. Pulsa **Añadir**.
-4. Deja **Gestion de stocks** en No: el servido no lleva existencia propia, se controlan sus insumos.
+Todos los insumos deben existir antes. Si el Plus usa un cono distinto, créalo primero como insumo (ver *Otros casos → Insumo nuevo*).
+
+#### Paso 1 — Crear la ficha del producto
+
+Menú **Productos → Nuevo producto**:
+
+1. **Ref.:** la siguiente libre de venta. Hoy la última es `PV-032`, así que `PV-033`.
+2. **Etiqueta:** `Barquilla Plus` (es lo que ve el cajero y lo que sale en el recibo).
+3. **En venta:** Sí. **En compra:** No.
+4. **Precio de venta:** el precio final al público **con IVA incluido** (por ejemplo `2,00`), base de precio **TTC**, y **Tasa IVA** 16 %. Sin precio, déjalo con **En venta: No**: un producto sin precio no debe salir en la caja.
+5. **Gestion de stocks:** No (el servido no lleva existencia propia; se controlan sus insumos).
+6. No pongas **Precio de costo**: el costo del servido se calcula solo con su receta.
+7. Más abajo, en los campos del módulo, llena la receta:
+
+| Campo | Qué es | Barquilla Plus |
+| --- | --- | --- |
+| Máx. sabores | Cuántos sabores puede elegir el cliente en la Toma de orden. Un sabor mezclado (Chocolate-Fresa) cuenta como uno | 1 |
+| Grupo de sabores | **Mix (servidos)**: hace que la Toma de orden pida sabor y descuente mix | Mix (servidos) |
+| Gramos por porción | **Gramos de mix por unidad vendida.** Es lo que baja del inventario de mix. Si el sabor es mitad y mitad, se reparte: 90 g de cada mix | 180 |
+| Gramos de sirope (receta) | Gramos de **Sirope (granel)** que lleva (aquí, el sirope dentro del cono). 0 si no lleva | 10 |
+| Gramos de topping (receta) | Gramos de **Topping (granel)** que lleva. 0 si no lleva | 10 |
+| Pirulín/Oreo (receta, uds) | Unidades de Pirulín u Oreo que lleva. 0 si no lleva | 0 |
+| Unidad de control | Déjalo vacío (es solo para insumos) | — |
+
+8. Pulsa **Crear**.
+9. En la ficha ya creada, pestaña **Categorías**, asígnale **Servido en camión**. Esa categoría es la pestaña de la Toma de orden donde aparecerá, y la que usan los reportes. Si no le pones categoría, no sale en la Toma de orden.
+
+**Dónde se ponen los gramos de mix:** solo en **Gramos por porción**, con **Grupo de sabores = Mix (servidos)**. No se agrega el mix al kit: el sistema lo descuenta del mix del sabor que el cliente elige (Chocolate, Fresa, Chocolate-Fresa…), y por eso el mix no puede ir fijo en el kit.
+
+#### Paso 2 — Armar el kit de componentes
+
+En la ficha de **Barquilla Plus**, abre la pestaña **Kits**:
+
+1. Abajo, en el buscador, escribe `INS-012` (Cono barquilla) y pulsa **Buscar**.
+2. En el resultado, escribe la **Cant.** por unidad vendida: `1`.
+3. Marca la casilla **Incrementar/Decrementar stock al cambiar su padre**. Sin esa marca el cono **no baja** del camión al vender.
+4. Pulsa **Añadir**. El cono aparece arriba, en la lista de componentes del kit.
+5. Repite con `INS-013` (Portacono) y `INS-031` (Servilletas), cantidad `1` cada uno y con la casilla marcada.
+
+El kit de la Barquilla Plus queda así:
+
+| Componente | Cant. | Incrementar/Decrementar stock |
+| --- | --- | --- |
+| INS-012 Cono barquilla | 1 | Sí |
+| INS-013 Portacono | 1 | Sí |
+| INS-031 Servilletas | 1 | Sí |
+
+**No agregues al kit** el mix, el sirope, el topping ni el Pirulín/Oreo: salen de los campos del Paso 1, y si también van en el kit se descuentan dos veces.
 
 **Quitar o cambiar un insumo del kit.** La pestaña Kits no tiene botón de eliminar. En la lista de componentes del kit, pon la cantidad del insumo en **0** y pulsa **Guardar** (en la fila de totales, al pie de la lista): los que queden en 0 se borran. Con el mismo botón se cambian cantidades y la marca de descontar stock. Haz el cambio también en local: al importar el paquete, los kits de producción quedan igual que los de local.
 
-No agregues al kit el mix, el sirope, el topping ni el Pirulín/Oreo. Esos salen de los campos del paso 1, y si también van en el kit se descuentan dos veces.
+#### Paso 3 — Qué baja del camión al venderla
 
-**Comprobar:** abre la Toma de orden y verifica que el producto sale en su pestaña y pide sabores. Luego revisa en **Costos y margen** que tenga costo; si sale en 0, a algún insumo le falta el precio de costo. Si el producto se creó en local, pasa a producción con el paquete de migración (los kits viajan en él).
+Al cobrar **1 Barquilla Plus de Chocolate**, el camión baja:
+
+| Insumo | Baja | De dónde sale |
+| --- | --- | --- |
+| Cono barquilla | 1 ud | Kit |
+| Portacono | 1 ud | Kit |
+| Servilletas | 1 ud | Kit |
+| Mix de chocolate | 180 g | Gramos por porción |
+| Sirope (granel) | 10 g | Gramos de sirope (receta) |
+| Topping (granel) | 10 g | Gramos de topping (receta) |
+
+Si el sabor es **Chocolate-Fresa**, baja **90 g de cada mix**. Si el cliente pide además un **Sirope** o **Topping** adicional (botones + de la Toma de orden), bajan 10 g de sirope o 15 g de topping más, y se cobran aparte.
+
+El costo de la receta sale del **precio de costo** de cada insumo del kit y del mix; el sirope y el topping usan un costo por gramo fijo del módulo (`SABROOSKIPOS_COSTO_G_SIROPE` y `SABROOSKIPOS_COSTO_G_TOPPING`, por defecto 0,0096 y 0,0126 $/g). Con los costos actuales (cono 0,0563 $, portacono 0,03 $, servilleta 0,0042 $, mix 0,002044 $/g), la Barquilla Plus cuesta unos **0,68 $**, frente a 0,44 $ de la Barquilla normal.
+
+#### Paso 4 — Comprobar
+
+1. **Toma de orden:** abre la pestaña **Servido en camión** y verifica que sale *Barquilla Plus* y que pide sabor. Con el doble de mix, el aviso "quedan N" de cada sabor alcanza para la mitad de porciones que una barquilla normal.
+2. **Venta de prueba** (en local): vende una, y en **Productos → Stock → Movimientos** (o en **ReportesVentas → Insumos del móvil**) revisa que bajaron 1 cono, 1 portacono, 1 servilleta, 180 g de mix y los gramos de sirope y topping.
+3. **Costos y margen:** revisa que tenga costo. Si sale en 0, a algún insumo le falta el precio de costo.
+4. **A producción:** si lo creaste en local, pásalo con el paquete de migración (ver *Exportar e importar el catálogo*): viajan el producto, su precio, sus campos de receta, su categoría y su kit.
 
 **Otros casos:**
 
